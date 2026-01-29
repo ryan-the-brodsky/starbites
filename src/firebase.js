@@ -65,6 +65,14 @@ export const updateLevelInDB = async (gameCode, levelNum, updates) => {
   await update(dbRef, updates);
 };
 
+// Deep path update - allows updating nested paths without overwriting siblings
+// e.g., updateLevelPathInDB(gameCode, 1, 'roleSelections/productDev/playerSelections/player123', [1,2,3])
+export const updateLevelPathInDB = async (gameCode, levelNum, path, value) => {
+  if (!database) throw new Error('Firebase not configured');
+  const dbRef = ref(database, `games/${gameCode}/level${levelNum}/${path}`);
+  await set(dbRef, value);
+};
+
 export const updateMetaInDB = async (gameCode, updates) => {
   const dbRef = metaRef(gameCode);
   if (!dbRef) throw new Error('Firebase not configured');

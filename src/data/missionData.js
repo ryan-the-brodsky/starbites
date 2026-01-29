@@ -100,17 +100,19 @@ export const uxPyramidSummary = {
   ]
 };
 
-// 10 Success Criteria Options - derived from DFMEA and UX Pyramid
-// Each criteria specifies what measurements/tests would be needed to verify it
-// This links to Level 3 (Sampling Plan) and Level 4 (Data Analysis)
-export const successCriteriaOptions = [
+// Success Criteria Options organized by functional role
+// Each role has criteria specific to their domain
+// Max 3 criteria can be selected per role
+
+// Product Development criteria - focus on formula, ingredients, product performance
+export const productDevCriteria = [
   {
-    id: 'sc1',
+    id: 'pd1',
     text: 'Achieve gel strength within target range (45-60 second set time) for 95% of units',
     source: 'dfmea',
     sourceRef: 'FM1: Gel setting failure',
     category: 'Process Control',
-    // What process steps and tests can measure this criteria
+    role: 'productDev',
     requiredMeasurements: [
       { step: 'gelling', test: 'gel', description: 'Gel strength measurement' },
       { step: 'gelling', test: 'temp', description: 'Temperature during gelling' }
@@ -118,22 +120,12 @@ export const successCriteriaOptions = [
     targetSpec: { metric: 'gel_strength', min: 45, max: 60, unit: 'seconds' }
   },
   {
-    id: 'sc2',
-    text: 'Maintain portion weight consistency within ±2g tolerance across all production batches',
-    source: 'dfmea',
-    sourceRef: 'FM2: Uneven portioning',
-    category: 'Process Control',
-    requiredMeasurements: [
-      { step: 'portioning', test: 'weight', description: 'Unit weight measurement' }
-    ],
-    targetSpec: { metric: 'weight_variance', min: -2, max: 2, unit: 'grams' }
-  },
-  {
-    id: 'sc3',
+    id: 'pd2',
     text: 'Pass sensory evaluation with no off-flavors detected in any batch samples',
     source: 'both',
     sourceRef: 'FM3 + UX Functional: Consistent taste',
     category: 'Quality',
+    role: 'productDev',
     requiredMeasurements: [
       { step: 'release', test: 'sensory', description: 'Sensory panel evaluation' },
       { step: 'mixing', test: 'temp', description: 'Mixing temperature control' }
@@ -141,22 +133,12 @@ export const successCriteriaOptions = [
     targetSpec: { metric: 'sensory_score', min: 4, max: 5, unit: 'rating' }
   },
   {
-    id: 'sc4',
-    text: 'Achieve <1% packaging seal failure rate across the trial run',
-    source: 'dfmea',
-    sourceRef: 'FM4: Packaging seal failure',
-    category: 'Process Control',
-    requiredMeasurements: [
-      { step: 'packaging', test: 'seal', description: 'Seal integrity test' }
-    ],
-    targetSpec: { metric: 'seal_failure_rate', min: 0, max: 1, unit: 'percent' }
-  },
-  {
-    id: 'sc5',
-    text: 'Maintain moisture content within specification at all critical control points',
+    id: 'pd3',
+    text: 'Maintain moisture content within specification (12-16%) at all critical control points',
     source: 'dfmea',
     sourceRef: 'FM5: Moisture content out of spec',
     category: 'Process Control',
+    role: 'productDev',
     requiredMeasurements: [
       { step: 'blending', test: 'moisture', description: 'Post-blending moisture' },
       { step: 'cooling', test: 'moisture', description: 'Post-cooling moisture' }
@@ -164,23 +146,12 @@ export const successCriteriaOptions = [
     targetSpec: { metric: 'moisture_content', min: 12, max: 16, unit: 'percent' }
   },
   {
-    id: 'sc6',
-    text: 'Complete all safety and allergen documentation with zero non-conformances',
-    source: 'uxpyramid',
-    sourceRef: 'UX Foundation: Safety & Trust',
-    category: 'Compliance',
-    requiredMeasurements: [
-      { step: 'receiving', test: 'visual', description: 'Incoming material inspection' },
-      { step: 'release', test: 'micro', description: 'Microbial testing' }
-    ],
-    targetSpec: { metric: 'documentation_complete', min: 100, max: 100, unit: 'percent' }
-  },
-  {
-    id: 'sc7',
+    id: 'pd4',
     text: 'Achieve texture score of 4+ out of 5 in consumer panel evaluation',
     source: 'uxpyramid',
     sourceRef: 'UX Functional: Appropriate texture',
     category: 'Quality',
+    role: 'productDev',
     requiredMeasurements: [
       { step: 'cooling', test: 'texture', description: 'Texture analysis' },
       { step: 'release', test: 'sensory', description: 'Sensory panel texture score' }
@@ -188,23 +159,129 @@ export const successCriteriaOptions = [
     targetSpec: { metric: 'texture_score', min: 4, max: 5, unit: 'rating' }
   },
   {
-    id: 'sc8',
-    text: 'Produce minimum of 500 units meeting all quality specifications',
-    source: 'operational',
-    sourceRef: 'Scale trial requirement',
-    category: 'Output',
+    id: 'pd5',
+    text: 'Confirm viscosity remains stable (2500-3500 cP) throughout mixing process',
+    source: 'dfmea',
+    sourceRef: 'Process stability',
+    category: 'Process Control',
+    role: 'productDev',
     requiredMeasurements: [
-      { step: 'portioning', test: 'weight', description: 'Unit count and weight' },
-      { step: 'packaging', test: 'visual', description: 'Final product inspection' }
+      { step: 'mixing', test: 'viscosity', description: 'Viscosity monitoring' }
     ],
-    targetSpec: { metric: 'units_produced', min: 500, max: null, unit: 'units' }
+    targetSpec: { metric: 'viscosity', min: 2500, max: 3500, unit: 'cP' }
+  }
+];
+
+// Package Development criteria - focus on packaging materials, design, compatibility
+export const packageDevCriteria = [
+  {
+    id: 'pk1',
+    text: 'Achieve <1% packaging seal failure rate across the trial run',
+    source: 'dfmea',
+    sourceRef: 'FM4: Packaging seal failure',
+    category: 'Process Control',
+    role: 'packageDev',
+    requiredMeasurements: [
+      { step: 'packaging', test: 'seal', description: 'Seal integrity test' }
+    ],
+    targetSpec: { metric: 'seal_failure_rate', min: 0, max: 1, unit: 'percent' }
   },
   {
-    id: 'sc9',
+    id: 'pk2',
+    text: 'Verify package dimensions within ±1mm tolerance for shelf display compatibility',
+    source: 'uxpyramid',
+    sourceRef: 'UX Usability: Shelf-stable',
+    category: 'Quality',
+    role: 'packageDev',
+    requiredMeasurements: [
+      { step: 'packaging', test: 'dimensions', description: 'Package dimension check' }
+    ],
+    targetSpec: { metric: 'dimension_variance', min: -1, max: 1, unit: 'mm' }
+  },
+  {
+    id: 'pk3',
+    text: 'Confirm package tamper-evidence features function correctly on 100% of units',
+    source: 'uxpyramid',
+    sourceRef: 'UX Foundation: Package tamper-evident',
+    category: 'Safety',
+    role: 'packageDev',
+    requiredMeasurements: [
+      { step: 'packaging', test: 'visual', description: 'Tamper seal inspection' }
+    ],
+    targetSpec: { metric: 'tamper_compliance', min: 100, max: 100, unit: 'percent' }
+  },
+  {
+    id: 'pk4',
+    text: 'Validate film alignment accuracy within ±2mm for consistent branding appearance',
+    source: 'uxpyramid',
+    sourceRef: 'UX Delight: Visually appealing',
+    category: 'Aesthetics',
+    role: 'packageDev',
+    requiredMeasurements: [
+      { step: 'packaging', test: 'visual', description: 'Print registration check' }
+    ],
+    targetSpec: { metric: 'print_alignment', min: -2, max: 2, unit: 'mm' }
+  },
+  {
+    id: 'pk5',
+    text: 'Ensure package opening force is within consumer-friendly range (5-15N)',
+    source: 'uxpyramid',
+    sourceRef: 'UX Functional: Easy to open',
+    category: 'Usability',
+    role: 'packageDev',
+    requiredMeasurements: [
+      { step: 'packaging', test: 'seal', description: 'Opening force measurement' }
+    ],
+    targetSpec: { metric: 'opening_force', min: 5, max: 15, unit: 'N' }
+  }
+];
+
+// Quality criteria - focus on testing standards, compliance, quality metrics
+export const qualityCriteria = [
+  {
+    id: 'qa1',
+    text: 'Complete all safety and allergen documentation with zero non-conformances',
+    source: 'uxpyramid',
+    sourceRef: 'UX Foundation: Safety & Trust',
+    category: 'Compliance',
+    role: 'quality',
+    requiredMeasurements: [
+      { step: 'receiving', test: 'visual', description: 'Incoming material inspection' },
+      { step: 'release', test: 'micro', description: 'Microbial testing' }
+    ],
+    targetSpec: { metric: 'documentation_complete', min: 100, max: 100, unit: 'percent' }
+  },
+  {
+    id: 'qa2',
+    text: 'Maintain portion weight consistency within ±2g tolerance across all batches',
+    source: 'dfmea',
+    sourceRef: 'FM2: Uneven portioning',
+    category: 'Process Control',
+    role: 'quality',
+    requiredMeasurements: [
+      { step: 'portioning', test: 'weight', description: 'Unit weight measurement' }
+    ],
+    targetSpec: { metric: 'weight_variance', min: -2, max: 2, unit: 'grams' }
+  },
+  {
+    id: 'qa3',
+    text: 'Pass microbial testing with counts below regulatory limits on all batch samples',
+    source: 'uxpyramid',
+    sourceRef: 'UX Foundation: Safe to consume',
+    category: 'Safety',
+    role: 'quality',
+    requiredMeasurements: [
+      { step: 'release', test: 'micro', description: 'Microbial count analysis' }
+    ],
+    targetSpec: { metric: 'micro_count', min: 0, max: 100, unit: 'CFU/g' }
+  },
+  {
+    id: 'qa4',
     text: 'Document all process parameters and deviations for future production reference',
     source: 'operational',
     sourceRef: 'Knowledge transfer requirement',
     category: 'Documentation',
+    role: 'quality',
     requiredMeasurements: [
       { step: 'gelling', test: 'temp', description: 'Process temperature logging' },
       { step: 'mixing', test: 'viscosity', description: 'Viscosity monitoring' }
@@ -212,17 +289,46 @@ export const successCriteriaOptions = [
     targetSpec: { metric: 'parameters_logged', min: 100, max: 100, unit: 'percent' }
   },
   {
-    id: 'sc10',
-    text: 'Complete trial within allocated time window with no unplanned stoppages >15 minutes',
+    id: 'qa5',
+    text: 'Produce minimum of 500 units meeting all quality specifications',
     source: 'operational',
-    sourceRef: 'Operational efficiency',
-    category: 'Efficiency',
+    sourceRef: 'Scale trial requirement',
+    category: 'Output',
+    role: 'quality',
     requiredMeasurements: [
-      { step: 'portioning', test: 'dimensions', description: 'Line speed monitoring' }
+      { step: 'portioning', test: 'weight', description: 'Unit count and weight' },
+      { step: 'packaging', test: 'visual', description: 'Final product inspection' }
     ],
-    targetSpec: { metric: 'downtime', min: 0, max: 15, unit: 'minutes' }
+    targetSpec: { metric: 'units_produced', min: 500, max: null, unit: 'units' }
   }
 ];
+
+// Combined list for backward compatibility and unified access
+export const successCriteriaOptions = [
+  ...productDevCriteria,
+  ...packageDevCriteria,
+  ...qualityCriteria
+];
+
+// Helper to get criteria by role
+export const getCriteriaByRole = (role) => {
+  switch (role) {
+    case 'productDev':
+      return productDevCriteria;
+    case 'packageDev':
+      return packageDevCriteria;
+    case 'quality':
+      return qualityCriteria;
+    default:
+      return [];
+  }
+};
+
+// Maximum criteria selections per role
+export const MAX_CRITERIA_PER_ROLE = 3;
+
+// Penalty for missing roles (per missing role)
+export const MISSING_ROLE_PENALTY = 500;
 
 // Badge for Level 1
 export const level1Badge = {

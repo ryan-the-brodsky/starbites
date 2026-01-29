@@ -1,12 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Users } from 'lucide-react';
 
-const RotaryDial = ({ task, isCompleted, onActivate }) => {
+const RotaryDial = ({ task, isCompleted, isPartialComplete, isDisabled, needsTeamwork, teamProgress, onActivate }) => {
   const [rotation, setRotation] = useState(0);
   const clickCountRef = useRef(0);
 
   const handleClick = () => {
-    if (isCompleted) return;
+    if (isCompleted || isDisabled) return;
     clickCountRef.current += 1;
     setRotation(clickCountRef.current * 90);
 
@@ -17,8 +17,15 @@ const RotaryDial = ({ task, isCompleted, onActivate }) => {
 
   return (
     <div className="flex flex-col items-center">
+      {/* Teamwork indicator */}
+      {needsTeamwork && teamProgress && (
+        <div className="flex items-center gap-1 mb-1 text-[8px] text-cyan-400">
+          <Users className="w-3 h-3" />
+          <span>{teamProgress.completed}/{teamProgress.total}</span>
+        </div>
+      )}
       <div
-        className={`relative cursor-pointer select-none ${isCompleted ? 'opacity-60' : ''}`}
+        className={`relative cursor-pointer select-none ${isCompleted ? 'opacity-60' : ''} ${isDisabled ? 'opacity-30 cursor-not-allowed' : ''}`}
         onClick={handleClick}
       >
         <div className="w-16 h-16 bg-gradient-to-b from-slate-600 to-slate-700 rounded-lg border-2 border-slate-500 p-1">
@@ -32,17 +39,20 @@ const RotaryDial = ({ task, isCompleted, onActivate }) => {
             ))}
             <div
               className={`absolute inset-1.5 rounded-full transition-transform duration-200 ${
-                isCompleted ? 'bg-gradient-to-br from-green-600 to-green-800' : 'bg-gradient-to-br from-cyan-600 to-cyan-800'
+                isCompleted ? 'bg-gradient-to-br from-green-600 to-green-800' :
+                isPartialComplete ? 'bg-gradient-to-br from-cyan-500 to-cyan-700' :
+                'bg-gradient-to-br from-cyan-600 to-cyan-800'
               }`}
-              style={{ transform: `rotate(${isCompleted ? 270 : rotation}deg)` }}
+              style={{ transform: `rotate(${isCompleted || isPartialComplete ? 270 : rotation}deg)` }}
             >
               <div className="absolute top-0.5 left-1/2 -translate-x-1/2 w-1.5 h-2.5 bg-white rounded-full" />
             </div>
             {isCompleted && <CheckCircle2 className="absolute inset-0 m-auto w-4 h-4 text-green-300" />}
+            {isPartialComplete && !isCompleted && <span className="absolute inset-0 m-auto w-4 h-4 flex items-center justify-center text-cyan-200 text-xs font-bold">✓</span>}
           </div>
         </div>
         {/* Click counter indicator */}
-        {!isCompleted && (
+        {!isCompleted && !isPartialComplete && (
           <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex gap-1">
             {[1, 2, 3].map(i => (
               <div
@@ -54,7 +64,9 @@ const RotaryDial = ({ task, isCompleted, onActivate }) => {
         )}
       </div>
       <div className="text-[10px] text-cyan-400 font-mono mt-2">TURN ×3</div>
-      <div className={`text-[10px] leading-tight text-center mt-1 max-w-24 ${isCompleted ? 'text-green-400' : 'text-slate-400'}`}>
+      <div className={`text-[10px] leading-tight text-center mt-1 max-w-24 ${
+        isCompleted ? 'text-green-400' : isPartialComplete ? 'text-cyan-400' : isDisabled ? 'text-slate-600' : 'text-slate-400'
+      }`}>
         {task.name}
       </div>
     </div>

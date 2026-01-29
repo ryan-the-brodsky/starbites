@@ -4,13 +4,17 @@ import { Rocket, Star, Users, Trophy, BookOpen, LogOut, Menu, X } from 'lucide-r
 import { useGame } from '../../contexts/GameContext';
 import { useAuth } from '../../contexts/AuthContext';
 import ResourcesPanel from './ResourcesPanel';
+import { getPlayerCharacter } from '../../data/characters';
 
 const Header = () => {
   const navigate = useNavigate();
-  const { gameState, leaveGame, role } = useGame();
+  const { gameState, leaveGame, role, playerId, functionalRole } = useGame();
   const { logout } = useAuth();
   const [showResources, setShowResources] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+
+  // Get player's character
+  const character = getPlayerCharacter(playerId, functionalRole);
 
   const handleLeave = () => {
     leaveGame();
@@ -75,6 +79,17 @@ const Header = () => {
                   <div className="text-[10px] text-slate-500">LEVEL</div>
                   <div className="text-sm text-purple-400 font-bold">{gameState.meta.currentLevel}/4</div>
                 </div>
+
+                {/* Player Identity Badge */}
+                {functionalRole && (
+                  <div className="hidden lg:flex items-center gap-2 bg-gradient-to-r from-cyan-900/50 to-slate-800 rounded-lg px-3 py-1 border border-cyan-700/50">
+                    <span className="text-xl">{character.emoji}</span>
+                    <div>
+                      <div className="text-xs text-cyan-400 font-medium">{character.name}</div>
+                      <div className="text-[10px] text-slate-500">{character.title}</div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -126,6 +141,16 @@ const Header = () => {
             <div className="sm:hidden mt-3 pt-3 border-t border-slate-700 space-y-2">
               {gameState && (
                 <>
+                  {/* Character Identity on Mobile */}
+                  {functionalRole && (
+                    <div className="flex items-center gap-3 bg-cyan-900/30 rounded-lg p-2 border border-cyan-700/50 mb-3">
+                      <span className="text-2xl">{character.emoji}</span>
+                      <div>
+                        <div className="text-sm text-cyan-400 font-medium">{character.name}</div>
+                        <div className="text-xs text-slate-500">{character.title}</div>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500">Team:</span>
                     <span className="text-white">{gameState.meta.teamName}</span>

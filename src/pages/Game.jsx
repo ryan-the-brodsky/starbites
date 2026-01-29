@@ -1,9 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Target, Rocket, FlaskConical, FileText, Lock, CheckCircle2, Shield, ShieldOff } from 'lucide-react';
+import { Target, Rocket, FlaskConical, FileText, Lock, CheckCircle2, Shield, ShieldOff, ChevronLeft } from 'lucide-react';
 import { useGame } from '../contexts/GameContext';
 import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/common/Header';
+import RoleSelection from '../components/RoleSelection/RoleSelection';
+import CrewIntro from '../components/CrewIntro/CrewIntro';
 import SuccessCriteria from '../components/levels/SuccessCriteria/SuccessCriteria';
 import Level1 from '../components/levels/Level1/Level1'; // Pretrial Checklist (Level 2)
 import Level2 from '../components/levels/Level2/Level2'; // Sampling Plan (Level 3)
@@ -40,7 +42,7 @@ const LevelSelectScreen = ({ gameState, onSelectLevel, isTestMode, onToggleTestM
         {/* Header */}
         <div className="text-center mb-10">
           <h1 className="text-4xl font-bold text-cyan-400 mb-2">Mission Levels</h1>
-          <p className="text-slate-400">Select a level to begin</p>
+          <p className="text-slate-400">Select a level to view</p>
           <p className="text-sm text-slate-500 mt-2">
             Team: <span className="text-cyan-300">{gameState?.meta?.teamName}</span>
             {' | '}
@@ -78,7 +80,7 @@ const LevelSelectScreen = ({ gameState, onSelectLevel, isTestMode, onToggleTestM
             return (
               <button
                 key={level.num}
-                onClick={() => isUnlocked && onSelectLevel(level.num, isTestMode)}
+                onClick={() => isUnlocked && onSelectLevel(level.num)}
                 disabled={!isUnlocked}
                 className={`relative p-6 rounded-xl border-2 text-left transition-all ${
                   isUnlocked
@@ -134,11 +136,29 @@ const LevelSelectScreen = ({ gameState, onSelectLevel, isTestMode, onToggleTestM
   );
 };
 
+// Back to Level Select button component
+const BackToLevelSelect = ({ onBack }) => (
+  <button
+    onClick={onBack}
+    className="fixed bottom-4 left-4 z-40 flex items-center gap-2 px-4 py-2 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 rounded-lg text-slate-300 text-sm transition-all hover:scale-105"
+  >
+    <ChevronLeft className="w-4 h-4" />
+    Level Select
+  </button>
+);
+
 const Game = () => {
   const { gameCode } = useParams();
   const navigate = useNavigate();
-  const { gameState, joinGame, isInGame, navigateToLevel } = useGame();
+  const { gameState, joinGame, isInGame, gameStarted } = useGame();
   const { isTestMode, toggleTestMode } = useAuth();
+
+  // Local state for which level THIS player is viewing
+  // This is independent of other players
+  const [playerViewLevel, setPlayerViewLevel] = useState(0);
+
+  // Track if player has seen the crew intro
+  const [hasSeenCrewIntro, setHasSeenCrewIntro] = useState(false);
 
   // Join game if not already in one
   useEffect(() => {
@@ -153,6 +173,36 @@ const Game = () => {
       navigate('/');
     }
   }, [gameState, gameCode, navigate]);
+
+  // Load saved view level and crew intro state from localStorage on mount
+  useEffect(() => {
+    const savedLevel = localStorage.getItem(`starbites_view_level_${gameCode}`);
+    if (savedLevel) {
+      setPlayerViewLevel(parseInt(savedLevel, 10));
+    }
+    const seenIntro = localStorage.getItem(`starbites_seen_intro_${gameCode}`);
+    if (seenIntro === 'true') {
+      setHasSeenCrewIntro(true);
+    }
+  }, [gameCode]);
+
+  // Handler for continuing past crew intro
+  const handleCrewIntroContinue = () => {
+    setHasSeenCrewIntro(true);
+    localStorage.setItem(`starbites_seen_intro_${gameCode}`, 'true');
+  };
+
+  // Handler for selecting a level to view
+  const handleSelectLevel = (levelNum) => {
+    setPlayerViewLevel(levelNum);
+    localStorage.setItem(`starbites_view_level_${gameCode}`, levelNum.toString());
+  };
+
+  // Handler for going back to level select
+  const handleBackToLevelSelect = () => {
+    setPlayerViewLevel(0);
+    localStorage.setItem(`starbites_view_level_${gameCode}`, '0');
+  };
 
   if (!gameState) {
     return (
@@ -195,17 +245,32 @@ const Game = () => {
     );
   }
 
-  // Render current level or level select
-  const currentLevel = gameState.meta?.currentLevel ?? 0;
+  // Show role selection if game hasn't started yet
+  if (!gameStarted) {
+    return (
+      <>
+        <Header />
+        <RoleSelection />
+      </>
+    );
+  }
+
+  // Show crew intro after game starts (once per player per game)
+  if (!hasSeenCrewIntro) {
+    return <CrewIntro onContinue={handleCrewIntroContinue} />;
+  }
+
+  // Use player's local view level (independent navigation)
+  const currentViewLevel = playerViewLevel;
 
   // Level 0 = show level select screen
-  if (currentLevel === 0) {
+  if (currentViewLevel === 0) {
     return (
       <>
         <Header />
         <LevelSelectScreen
           gameState={gameState}
-          onSelectLevel={navigateToLevel}
+          onSelectLevel={handleSelectLevel}
           isTestMode={isTestMode}
           onToggleTestMode={toggleTestMode}
         />
@@ -213,16 +278,28 @@ const Game = () => {
     );
   }
 
+  // Check if this level is unlocked (for safety)
+  const highestUnlocked = gameState.meta?.highestUnlockedLevel || 1;
+  const isLevelUnlocked = isTestMode || currentViewLevel <= highestUnlocked;
+
+  if (!isLevelUnlocked) {
+    // If they somehow navigated to a locked level, send them back
+    handleBackToLevelSelect();
+    return null;
+  }
+
   return (
     <>
       <Header />
       {/* Level Navigator - always show when in a level */}
       <LevelNavigator />
+      {/* Back to Level Select button */}
+      <BackToLevelSelect onBack={handleBackToLevelSelect} />
       <main>
-        {currentLevel === 1 && <SuccessCriteria />}
-        {currentLevel === 2 && <Level1 />}
-        {currentLevel === 3 && <Level2 />}
-        {currentLevel === 4 && <Level4 />}
+        {currentViewLevel === 1 && <SuccessCriteria onNavigateToLevel={handleSelectLevel} />}
+        {currentViewLevel === 2 && <Level1 />}
+        {currentViewLevel === 3 && <Level2 />}
+        {currentViewLevel === 4 && <Level4 />}
       </main>
     </>
   );

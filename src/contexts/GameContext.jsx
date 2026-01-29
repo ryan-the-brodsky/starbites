@@ -4,6 +4,7 @@ import {
   getGameFromDB,
   updateGameInDB,
   updateLevelInDB,
+  updateLevelPathInDB,
   updateMetaInDB,
   addPlayerToDB,
   removeGameFromDB,
@@ -23,7 +24,7 @@ export const useGame = () => {
 };
 
 // Maximum players per team
-const MAX_PLAYERS_PER_TEAM = 4;
+const MAX_PLAYERS_PER_TEAM = 10;
 
 // Generate a team ID from team name (sanitized, lowercase, no spaces)
 const generateTeamId = (teamName) => {
@@ -34,6 +35,9 @@ const generateTeamId = (teamName) => {
 const generatePlayerId = () => {
   return 'player_' + Math.random().toString(36).substring(2, 10);
 };
+
+// Functional roles for players (separate from commander/crew game roles)
+const FUNCTIONAL_ROLES = ['productDev', 'packageDev', 'quality'];
 
 // Initial game state structure
 // 4 levels: Success Criteria, Pretrial Checklist, Sampling Plan, Mission Report
@@ -48,9 +52,18 @@ const createInitialGameState = (teamId, teamName) => ({
     totalScore: 0,
     isPaused: false,
     isLocked: false,
+    gameStarted: false, // Commander must start the game after role selection
   },
   level1: {
-    selectedCriteria: [],
+    // Each role has their own criteria selections and consensus tracking
+    // playerSelections tracks each player's individual selections in real-time
+    // confirmedSelections stores the final agreed-upon criteria once all players confirm
+    roleSelections: {
+      productDev: { playerSelections: {}, confirmedSelections: null, confirmedBy: [] },
+      packageDev: { playerSelections: {}, confirmedSelections: null, confirmedBy: [] },
+      quality: { playerSelections: {}, confirmedSelections: null, confirmedBy: [] },
+    },
+    selectedCriteria: [], // Final merged criteria after all roles confirm
     score: 0,
     completedAt: null,
   },
@@ -62,6 +75,10 @@ const createInitialGameState = (teamId, teamName) => ({
     penalties: 0,
     startedAt: null,
     completedAt: null,
+    readyPlayers: [], // Players who have clicked "Proceed to Pretrial"
+    levelStarted: false, // Commander must start after all are ready
+    taskAssignments: {}, // Maps taskId -> [playerIds] who can complete it
+    taskCompletions: {}, // Maps taskId -> [playerIds] who have completed their part
   },
   level3: {
     samplingPlan: null,
@@ -252,6 +269,7 @@ export const GameProvider = ({ children }) => {
     // Add commander as first player
     newGame.players[currentPlayerId] = {
       role: 'commander',
+      functionalRole: null, // Will be set during role selection
       joinedAt: Date.now(),
       lastActive: Date.now(),
     };
@@ -332,6 +350,7 @@ export const GameProvider = ({ children }) => {
       // Add crew member
       const playerData = {
         role: 'crew',
+        functionalRole: null, // Will be set during role selection
         joinedAt: Date.now(),
         lastActive: Date.now(),
       };
@@ -534,6 +553,299 @@ export const GameProvider = ({ children }) => {
     });
   }, [useFirebase, persistGameLocal]);
 
+  // Update player's functional role (productDev, packageDev, quality)
+  const updatePlayerRole = useCallback((functionalRole) => {
+    if (!playerId || !gameState) return;
+
+    setGameState(prev => {
+      if (!prev || !prev.players[playerId]) return prev;
+
+      const newState = {
+        ...prev,
+        players: {
+          ...prev.players,
+          [playerId]: {
+            ...prev.players[playerId],
+            functionalRole,
+          },
+        },
+      };
+
+      if (useFirebase && prev.gameCode) {
+        addPlayerToDB(prev.gameCode, playerId, newState.players[playerId]).catch(console.error);
+      } else {
+        persistGameLocal(newState);
+      }
+
+      // Also store in localStorage for quick access
+      localStorage.setItem('starbites_functional_role', functionalRole);
+
+      return newState;
+    });
+  }, [playerId, gameState, useFirebase, persistGameLocal]);
+
+  // Start the game (Commander only)
+  const startGame = useCallback(() => {
+    if (!gameState || role !== 'commander') return;
+
+    setGameState(prev => {
+      if (!prev) return prev;
+
+      const newState = {
+        ...prev,
+        meta: {
+          ...prev.meta,
+          gameStarted: true,
+        },
+      };
+
+      if (useFirebase && prev.gameCode) {
+        updateMetaInDB(prev.gameCode, { gameStarted: true }).catch(console.error);
+      } else {
+        persistGameLocal(newState);
+      }
+
+      return newState;
+    });
+  }, [gameState, role, useFirebase, persistGameLocal]);
+
+  // Get players grouped by functional role
+  const getPlayersByRole = useCallback(() => {
+    if (!gameState?.players) return { productDev: [], packageDev: [], quality: [], unassigned: [] };
+
+    const grouped = { productDev: [], packageDev: [], quality: [], unassigned: [] };
+    Object.entries(gameState.players).forEach(([id, player]) => {
+      const roleKey = player.functionalRole || 'unassigned';
+      if (grouped[roleKey]) {
+        grouped[roleKey].push({ id, ...player });
+      } else {
+        grouped.unassigned.push({ id, ...player });
+      }
+    });
+    return grouped;
+  }, [gameState]);
+
+  // Update player's criteria selections in real-time (for consensus tracking)
+  const updatePlayerCriteriaSelections = useCallback((selectedCriteriaIds) => {
+    if (!playerId || !gameState) return;
+
+    // Get functional role from current game state
+    const playerFunctionalRole = gameState?.players?.[playerId]?.functionalRole;
+    if (!playerFunctionalRole) return;
+
+    setGameState(prev => {
+      if (!prev) return prev;
+
+      const roleSelections = prev.level1?.roleSelections || {};
+      const currentRoleData = roleSelections[playerFunctionalRole] || { playerSelections: {}, confirmedSelections: null, confirmedBy: [] };
+
+      const newRoleSelections = {
+        ...roleSelections,
+        [playerFunctionalRole]: {
+          ...currentRoleData,
+          playerSelections: {
+            ...currentRoleData.playerSelections,
+            [playerId]: selectedCriteriaIds,
+          },
+        },
+      };
+
+      const newState = {
+        ...prev,
+        level1: {
+          ...prev.level1,
+          roleSelections: newRoleSelections,
+        },
+      };
+
+      if (useFirebase && prev.gameCode) {
+        // Use path-based update to avoid overwriting other players' selections
+        const path = `roleSelections/${playerFunctionalRole}/playerSelections/${playerId}`;
+        updateLevelPathInDB(prev.gameCode, 1, path, selectedCriteriaIds).catch(console.error);
+      } else {
+        persistGameLocal(newState);
+      }
+
+      return newState;
+    });
+  }, [playerId, gameState, useFirebase, persistGameLocal]);
+
+  // Confirm criteria selection (only works when all players in role have same selections)
+  const confirmCriteriaSelection = useCallback((selectedCriteriaData) => {
+    if (!playerId || !gameState) return false;
+
+    // Get functional role from current game state
+    const playerFunctionalRole = gameState?.players?.[playerId]?.functionalRole;
+    if (!playerFunctionalRole) return false;
+
+    setGameState(prev => {
+      if (!prev) return prev;
+
+      const roleSelections = prev.level1?.roleSelections || {};
+      const currentRoleData = roleSelections[playerFunctionalRole] || { playerSelections: {}, confirmedSelections: null, confirmedBy: [] };
+
+      const newConfirmedBy = [...(currentRoleData.confirmedBy || []).filter(id => id !== playerId), playerId];
+
+      const newRoleSelections = {
+        ...roleSelections,
+        [playerFunctionalRole]: {
+          ...currentRoleData,
+          confirmedSelections: selectedCriteriaData,
+          confirmedBy: newConfirmedBy,
+        },
+      };
+
+      const newState = {
+        ...prev,
+        level1: {
+          ...prev.level1,
+          roleSelections: newRoleSelections,
+        },
+      };
+
+      if (useFirebase && prev.gameCode) {
+        // Use path-based updates for confirmedSelections and confirmedBy
+        const basePath = `roleSelections/${playerFunctionalRole}`;
+        Promise.all([
+          updateLevelPathInDB(prev.gameCode, 1, `${basePath}/confirmedSelections`, selectedCriteriaData),
+          updateLevelPathInDB(prev.gameCode, 1, `${basePath}/confirmedBy`, newConfirmedBy),
+        ]).catch(console.error);
+      } else {
+        persistGameLocal(newState);
+      }
+
+      return newState;
+    });
+
+    return true;
+  }, [playerId, gameState, useFirebase, persistGameLocal]);
+
+  // Mark player as ready for Level 2 (Pretrial Checklist)
+  const markReadyForPretrial = useCallback(() => {
+    if (!playerId || !gameState) return;
+
+    setGameState(prev => {
+      if (!prev) return prev;
+
+      const readyPlayers = prev.level2?.readyPlayers || [];
+      if (readyPlayers.includes(playerId)) return prev; // Already ready
+
+      const newReadyPlayers = [...readyPlayers, playerId];
+
+      const newState = {
+        ...prev,
+        level2: {
+          ...prev.level2,
+          readyPlayers: newReadyPlayers,
+        },
+      };
+
+      if (useFirebase && prev.gameCode) {
+        updateLevelInDB(prev.gameCode, 2, { readyPlayers: newReadyPlayers }).catch(console.error);
+      } else {
+        persistGameLocal(newState);
+      }
+
+      return newState;
+    });
+  }, [playerId, gameState, useFirebase, persistGameLocal]);
+
+  // Assign tasks to players (Commander calls this when starting)
+  const assignTasksToPlayers = useCallback((allTasks) => {
+    if (!gameState) return {};
+
+    const players = Object.keys(gameState.players || {}).filter(
+      pid => gameState.players[pid].role === 'crew'
+    );
+
+    if (players.length === 0) return {};
+
+    const MIN_TASKS_PER_PLAYER = 3;
+    const taskAssignments = {};
+    const taskCompletions = {};
+
+    // Calculate how many players need each task
+    // If more players than tasks/MIN_TASKS, some tasks need multiple players
+    const totalMinTasks = players.length * MIN_TASKS_PER_PLAYER;
+    const duplicationsNeeded = Math.max(0, totalMinTasks - allTasks.length);
+
+    // Distribute tasks evenly with duplications
+    allTasks.forEach((task, idx) => {
+      // Determine how many players need this task
+      const basePlayers = Math.ceil(players.length / Math.max(1, Math.ceil(allTasks.length / MIN_TASKS_PER_PLAYER)));
+      const playersForTask = Math.max(1, basePlayers);
+
+      // Assign players to this task in round-robin fashion
+      const assignedPlayers = [];
+      for (let i = 0; i < playersForTask && assignedPlayers.length < players.length; i++) {
+        const playerIdx = (idx + i) % players.length;
+        if (!assignedPlayers.includes(players[playerIdx])) {
+          assignedPlayers.push(players[playerIdx]);
+        }
+      }
+
+      taskAssignments[task.id] = assignedPlayers;
+      taskCompletions[task.id] = [];
+    });
+
+    // Ensure every player has at least MIN_TASKS_PER_PLAYER tasks
+    players.forEach(pid => {
+      let playerTasks = Object.entries(taskAssignments)
+        .filter(([_, pids]) => pids.includes(pid))
+        .map(([tid]) => tid);
+
+      while (playerTasks.length < MIN_TASKS_PER_PLAYER) {
+        // Find task with fewest assignees that this player doesn't have
+        const availableTasks = Object.entries(taskAssignments)
+          .filter(([tid, pids]) => !pids.includes(pid))
+          .sort((a, b) => a[1].length - b[1].length);
+
+        if (availableTasks.length === 0) break;
+
+        const [taskId, currentPlayers] = availableTasks[0];
+        taskAssignments[taskId] = [...currentPlayers, pid];
+        playerTasks.push(taskId);
+      }
+    });
+
+    return { taskAssignments, taskCompletions };
+  }, [gameState]);
+
+  // Start pretrial checklist with task assignments
+  const startPretrialChecklist = useCallback((allTasks) => {
+    if (!gameState || role !== 'commander') return;
+
+    const { taskAssignments, taskCompletions } = assignTasksToPlayers(allTasks);
+
+    setGameState(prev => {
+      if (!prev) return prev;
+
+      const newState = {
+        ...prev,
+        level2: {
+          ...prev.level2,
+          levelStarted: true,
+          startedAt: Date.now(),
+          taskAssignments,
+          taskCompletions,
+        },
+      };
+
+      if (useFirebase && prev.gameCode) {
+        updateLevelInDB(prev.gameCode, 2, {
+          levelStarted: true,
+          startedAt: Date.now(),
+          taskAssignments,
+          taskCompletions,
+        }).catch(console.error);
+      } else {
+        persistGameLocal(newState);
+      }
+
+      return newState;
+    });
+  }, [gameState, role, assignTasksToPlayers, useFirebase, persistGameLocal]);
+
   // Leave current game
   const leaveGame = useCallback(() => {
     // Unsubscribe from real-time updates
@@ -623,10 +935,14 @@ export const GameProvider = ({ children }) => {
     }
   }, [gameState, useFirebase]);
 
+  // Get current player's functional role
+  const functionalRole = gameState?.players?.[playerId]?.functionalRole || null;
+
   const value = {
     gameState,
     playerId,
     role,
+    functionalRole,
     leaderboard,
     allGames,
     useFirebase,
@@ -640,12 +956,20 @@ export const GameProvider = ({ children }) => {
     applyPenalty,
     completeLevel,
     navigateToLevel,
+    updatePlayerRole,
+    startGame,
+    getPlayersByRole,
+    updatePlayerCriteriaSelections,
+    confirmCriteriaSelection,
+    markReadyForPretrial,
+    startPretrialChecklist,
     toggleGlobalPause,
     resetTeamProgress,
     deleteTeam,
     isInGame: !!gameState,
     isCommander: role === 'commander',
     isCrew: role === 'crew',
+    gameStarted: gameState?.meta?.gameStarted || false,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
