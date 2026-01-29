@@ -105,7 +105,7 @@ const Certificate = () => {
           <div className="flex items-center justify-between text-slate-500 text-xs">
             <span>Mission North Star</span>
             <span>Star Bites Training 2026</span>
-            <span>Dual Enroll</span>
+            <span>Danone North America</span>
           </div>
         </div>
 

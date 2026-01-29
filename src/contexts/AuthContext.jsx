@@ -35,11 +35,19 @@ export const AuthProvider = ({ children }) => {
 
   const login = (password) => {
     const sitePassword = import.meta.env.VITE_SITE_PASSWORD;
+    console.log('[Auth] Login attempt:', {
+      passwordEntered: password,
+      sitePasswordConfigured: sitePassword,
+      sitePasswordExists: !!sitePassword,
+      match: password === sitePassword
+    });
     if (password === sitePassword) {
       setIsAuthenticated(true);
       localStorage.setItem('starbites_auth', 'true');
+      console.log('[Auth] Login successful');
       return true;
     }
+    console.log('[Auth] Login failed - password mismatch');
     return false;
   };
 
