@@ -1,15 +1,17 @@
-import React, { useState, useMemo } from 'react';
-import { FileText, Send, Eye, CheckCircle2, XCircle, AlertTriangle, Target, BarChart3, FlaskConical, ChevronDown, ChevronUp, HelpCircle, RotateCcw, Award, ArrowLeft } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { FileText, Send, Eye, CheckCircle2, XCircle, AlertTriangle, Target, BarChart3, FlaskConical, ChevronDown, ChevronUp, HelpCircle, RotateCcw, Award, ArrowLeft, Users, X, Check } from 'lucide-react';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Legend } from 'recharts';
 import { useGame } from '../../../contexts/GameContext';
 import { successCriteriaOptions } from '../../../data/missionData';
+import { getPlayerCharacter } from '../../../data/characters';
+import LevelComplete from '../../common/LevelComplete';
 
 // Minimum sample count for statistical validity (internal policy)
 const MIN_SAMPLES_FOR_STATISTICAL_VALIDITY = 30;
 
 // Test specifications for generating fake data
 const testSpecs = {
-  temp: { unit: '°C', nominal: 68, variance: 5, failRange: 15 },
+  temp: { unit: 'C', nominal: 68, variance: 5, failRange: 15 },
   moisture: { unit: '%', nominal: 14, variance: 2, failRange: 4 },
   weight: { unit: 'g', nominal: 25, variance: 1.5, failRange: 3 },
   viscosity: { unit: 'cP', nominal: 450, variance: 50, failRange: 100 },
@@ -17,7 +19,7 @@ const testSpecs = {
   micro: { unit: 'CFU/g', nominal: 100, variance: 50, failRange: 500 },
   seal: { unit: '%', nominal: 99, variance: 0.5, failRange: 2 },
   sensory: { unit: '/5', nominal: 4.2, variance: 0.3, failRange: 1 },
-  particle: { unit: 'μm', nominal: 150, variance: 20, failRange: 50 },
+  particle: { unit: 'um', nominal: 150, variance: 20, failRange: 50 },
   texture: { unit: '/5', nominal: 4.0, variance: 0.4, failRange: 1 },
   dimensions: { unit: 'mm', nominal: 30, variance: 2, failRange: 5 },
   visual: { unit: '%', nominal: 98, variance: 1, failRange: 5 },
@@ -28,62 +30,62 @@ const productionDisasters = {
   // When user said "Met" but it was actually "Not Met" (false positive - most dangerous!)
   falsePositive: {
     temp: {
-      headline: "🔥 PRODUCT RECALL: Thermal Processing Failure",
-      description: "Star Bites shipped to retailers with improper gelling. Products are liquefying on shelves, causing $2.3M in recall costs and retailer relationship damage.",
+      headline: "PRODUCT RECALL: Thermal Processing Failure",
+      description: "Joy Bites shipped to retailers with improper gelling. Products are liquefying on shelves, causing $2.3M in recall costs and retailer relationship damage.",
       severity: "critical"
     },
     moisture: {
-      headline: "🦠 FDA WARNING: Moisture Levels Enable Microbial Growth",
-      description: "Excess moisture in Star Bites allowed mold growth. 12,000 units quarantined, facility inspection triggered. Production halted for 2 weeks.",
+      headline: "FDA WARNING: Moisture Levels Enable Microbial Growth",
+      description: "Excess moisture in Joy Bites allowed mold growth. 12,000 units quarantined, facility inspection triggered. Production halted for 2 weeks.",
       severity: "critical"
     },
     weight: {
-      headline: "⚖️ CONSUMER COMPLAINTS: Underweight Products",
+      headline: "CONSUMER COMPLAINTS: Underweight Products",
       description: "Retail partners report consistent underweight packages. Class action lawsuit filed for deceptive packaging. Legal fees estimated at $500K.",
       severity: "major"
     },
     viscosity: {
-      headline: "💧 PRODUCTION LINE DOWN: Viscosity Out of Control",
+      headline: "PRODUCTION LINE DOWN: Viscosity Out of Control",
       description: "Inconsistent viscosity caused portioning equipment to jam. 8 hours of unplanned downtime, 15,000 units scrapped.",
       severity: "major"
     },
     gel: {
-      headline: "🫠 SOCIAL MEDIA DISASTER: 'Star Bites Turned to Soup'",
-      description: "Without proper gel strength monitoring, products shipped with inconsistent texture. Viral TikTok of 'soupy Star Bites' gets 5M views. Brand reputation severely damaged.",
+      headline: "SOCIAL MEDIA DISASTER: 'Joy Bites Turned to Soup'",
+      description: "Without proper gel strength monitoring, products shipped with inconsistent texture. Viral TikTok of 'soupy Joy Bites' gets 5M views. Brand reputation severely damaged.",
       severity: "critical"
     },
     micro: {
-      headline: "☣️ URGENT RECALL: Microbial Contamination Detected",
+      headline: "URGENT RECALL: Microbial Contamination Detected",
       description: "Post-market testing reveals elevated bacterial counts. Voluntary recall of 3 production lots. FDA issues Form 483 with 4 observations.",
       severity: "critical"
     },
     seal: {
-      headline: "📦 SHELF LIFE FAILURE: Package Integrity Issues",
+      headline: "SHELF LIFE FAILURE: Package Integrity Issues",
       description: "Weak seals allowed oxygen ingress. Products spoiling before expiration date. 40% of production lot returned from retailers.",
       severity: "major"
     },
     sensory: {
-      headline: "😤 RETAILER DELISTING: 'Tastes Wrong'",
-      description: "Major grocery chain removes Star Bites after consumer complaints about off-flavors. Lost $1.2M in annual revenue from that channel.",
+      headline: "RETAILER DELISTING: 'Tastes Wrong'",
+      description: "Major grocery chain removes Joy Bites after consumer complaints about off-flavors. Lost $1.2M in annual revenue from that channel.",
       severity: "major"
     },
     particle: {
-      headline: "🔬 TEXTURE COMPLAINTS: 'Gritty' Product",
+      headline: "TEXTURE COMPLAINTS: 'Gritty' Product",
       description: "Improper particle size distribution led to gritty mouthfeel. Product reviews plummet to 2.1 stars. Sales down 35%.",
       severity: "moderate"
     },
     texture: {
-      headline: "👅 CONSUMER REJECTION: Unacceptable Texture",
+      headline: "CONSUMER REJECTION: Unacceptable Texture",
       description: "Products too firm/soft for consumer expectations. Market research shows 68% of trial users won't repurchase.",
       severity: "moderate"
     },
     dimensions: {
-      headline: "📐 PACKAGING FAILURE: Products Don't Fit",
+      headline: "PACKAGING FAILURE: Products Don't Fit",
       description: "Oversized pieces jam automated packaging. 3% of production damaged or scrapped daily.",
       severity: "moderate"
     },
     visual: {
-      headline: "👁️ QUALITY COMPLAINTS: Visible Defects",
+      headline: "QUALITY COMPLAINTS: Visible Defects",
       description: "Products with discoloration and inclusions reaching consumers. Social media posts about 'disgusting' appearance going viral.",
       severity: "moderate"
     }
@@ -91,42 +93,42 @@ const productionDisasters = {
   // When user said "Met" but there was insufficient data (assumed success without evidence)
   assumedSuccess: {
     temp: {
-      headline: "❓ PROCESS VALIDATION VOID: No Temperature Records",
+      headline: "PROCESS VALIDATION VOID: No Temperature Records",
       description: "Auditor discovers no temperature data during trial. Entire batch quarantined pending investigation. 3-week production delay while process is revalidated.",
       severity: "critical"
     },
     moisture: {
-      headline: "📋 AUDIT FAILURE: Missing Moisture Documentation",
+      headline: "AUDIT FAILURE: Missing Moisture Documentation",
       description: "Customer audit finds no moisture testing records. Contract terminated. $800K annual business lost.",
       severity: "major"
     },
     gel: {
-      headline: "🎲 QUALITY RUSSIAN ROULETTE: Gel Strength Unknown",
+      headline: "QUALITY RUSSIAN ROULETTE: Gel Strength Unknown",
       description: "Without gel strength data, 1 in 5 production batches ships with texture defects. Intermittent consumer complaints impossible to root-cause.",
       severity: "major"
     },
     micro: {
-      headline: "🚨 REGULATORY ACTION: Inadequate Micro Testing",
+      headline: "REGULATORY ACTION: Inadequate Micro Testing",
       description: "FDA inspection reveals insufficient microbiological testing during validation. Warning Letter issued. Facility must implement enhanced testing program.",
       severity: "critical"
     },
     weight: {
-      headline: "📊 COMPLIANCE GAP: No Weight Verification",
+      headline: "COMPLIANCE GAP: No Weight Verification",
       description: "State Weights & Measures audit finds no weight documentation. $25K fine and mandatory monthly audits for 1 year.",
       severity: "moderate"
     },
     seal: {
-      headline: "🔍 SHELF LIFE STUDY INVALID: No Seal Data",
+      headline: "SHELF LIFE STUDY INVALID: No Seal Data",
       description: "Shelf life claims unsupported due to missing seal integrity data. All marketing claims must be revised. Legal review required.",
       severity: "moderate"
     },
     sensory: {
-      headline: "🤷 LAUNCH GAMBLE: Sensory Profile Unknown",
+      headline: "LAUNCH GAMBLE: Sensory Profile Unknown",
       description: "Product launched without sensory baseline. Consumer feedback all over the map. No way to tell if complaints are valid or process-related.",
       severity: "moderate"
     },
     default: {
-      headline: "⚠️ DATA GAP: Critical Information Missing",
+      headline: "DATA GAP: Critical Information Missing",
       description: "This criteria was marked as 'Met' but no supporting data was collected. In production, this assumption could lead to undetected quality issues.",
       severity: "moderate"
     }
@@ -134,50 +136,50 @@ const productionDisasters = {
   // When user said "Met" but sample size was too small for statistical validity
   statisticallyUnsound: {
     temp: {
-      headline: "📊 VALIDATION REJECTED: Insufficient Temperature Data",
+      headline: "VALIDATION REJECTED: Insufficient Temperature Data",
       description: "Customer audit found only limited temperature measurements. With fewer than 30 data points, the process capability cannot be statistically validated. Full revalidation required with proper sample size.",
       severity: "major"
     },
     moisture: {
-      headline: "📊 PROCESS HOLD: Moisture Data Not Statistically Valid",
+      headline: "PROCESS HOLD: Moisture Data Not Statistically Valid",
       description: "QA review identified that moisture testing sample size (n<30) is insufficient to establish process capability. Production held pending expanded sampling study.",
       severity: "major"
     },
     gel: {
-      headline: "📊 SPECIFICATION CHALLENGE: Gel Strength Data Inconclusive",
+      headline: "SPECIFICATION CHALLENGE: Gel Strength Data Inconclusive",
       description: "With limited data points, natural variation cannot be distinguished from process problems. Customer rejected specification approval, requiring 6-week delay for proper sampling study.",
       severity: "major"
     },
     micro: {
-      headline: "📊 REGULATORY CONCERN: Micro Testing Sample Size Inadequate",
+      headline: "REGULATORY CONCERN: Micro Testing Sample Size Inadequate",
       description: "FDA inspector noted microbiological sampling does not meet statistical requirements for validation. Additional 30-day sampling program mandated before release.",
       severity: "critical"
     },
     weight: {
-      headline: "📊 COMPLIANCE RISK: Weight Variation Unknown",
-      description: "Without adequate sample size (n≥30), process capability for fill weight cannot be demonstrated. State inspector may require extended monitoring program.",
+      headline: "COMPLIANCE RISK: Weight Variation Unknown",
+      description: "Without adequate sample size (n>=30), process capability for fill weight cannot be demonstrated. State inspector may require extended monitoring program.",
       severity: "moderate"
     },
     sensory: {
-      headline: "📊 CONSUMER INSIGHT GAP: Sensory Panel Too Small",
+      headline: "CONSUMER INSIGHT GAP: Sensory Panel Too Small",
       description: "Marketing questioned product launch with sensory data from insufficient panelists. Brand team requires expanded consumer testing before go-to-market.",
       severity: "moderate"
     },
     default: {
-      headline: "📊 STATISTICAL WARNING: Sample Size Below Minimum",
+      headline: "STATISTICAL WARNING: Sample Size Below Minimum",
       description: "This criteria was evaluated with fewer than 30 data points. Per internal policy, a minimum of 30 samples are required for each measurement to establish statistical confidence. The conclusion may not be reliable.",
       severity: "moderate"
     }
   },
   // When user said "Not Met" but it was actually "Met" (false negative - overly cautious)
   falseNegative: {
-    headline: "🐢 UNNECESSARY DELAY: Overcautious Assessment",
+    headline: "UNNECESSARY DELAY: Overcautious Assessment",
     description: "Product launch delayed by 4 weeks for additional testing that was already covered. Competitor launched first. Estimated lost market share: 15%.",
     severity: "minor"
   },
   // When user said "Insufficient Data" but actually there was enough
   missedData: {
-    headline: "📉 MISSED OPPORTUNITY: Data Was Available",
+    headline: "MISSED OPPORTUNITY: Data Was Available",
     description: "The sampling plan actually captured the needed data, but it wasn't properly analyzed. Additional testing cost $12K and delayed launch by 1 week.",
     severity: "minor"
   }
@@ -201,7 +203,7 @@ const getDisasterForError = (userAnswer, correctAnswer, criteria) => {
     }
     // Default disaster for false positive
     return {
-      headline: "🚨 QUALITY ESCAPE: Defective Product Shipped",
+      headline: "QUALITY ESCAPE: Defective Product Shipped",
       description: "Products that didn't meet specifications were approved and shipped. Customer complaints and potential recall situation.",
       severity: "major",
       type: 'falsePositive'
@@ -261,6 +263,7 @@ const timePointXPositions = {
 // Generate fake data based on sampling plan
 // New structure: samplingPlan[stepId][testId][timePointId] = quantity
 // Now generates individual sample points for scatter plots
+// Uses team seed for randomization that's consistent within a game session
 const generateFakeData = (samplingPlan, successCriteria, seed = 42) => {
   const data = {};
   const scatterData = {}; // New: individual points for scatter plots
@@ -514,21 +517,152 @@ const TestScatterPlot = ({ testId, scatterPoints, spec }) => {
   );
 };
 
-const Level4 = () => {
-  const { gameState, updateLevelState, completeLevel, navigateToLevel } = useGame();
-  const [criteriaAssessments, setCriteriaAssessments] = useState({});
+// Crew Agreement Status Panel component
+const CrewAgreementPanel = ({ players, agreements, playerId, onAgree, hasAgreed, allAgreed, gameState }) => {
+  const allPlayers = Object.entries(players || {});
+
+  return (
+    <div className={`rounded-xl p-4 border mb-6 ${
+      allAgreed
+        ? 'bg-green-900/20 border-green-600'
+        : 'bg-slate-800/50 border-slate-700'
+    }`}>
+      <h3 className="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
+        <Users className="w-4 h-4" />
+        Crew Agreement Status
+        {allAgreed && (
+          <span className="text-green-400 text-xs ml-2">All crew members have agreed!</span>
+        )}
+      </h3>
+
+      <div className="flex flex-wrap justify-center gap-3 mb-4">
+        {allPlayers.map(([pid, playerData]) => {
+          const hasPlayerAgreed = agreements?.[pid] === true;
+          const isMe = pid === playerId;
+          const character = getPlayerCharacter(pid, playerData?.functionalRole);
+
+          return (
+            <div
+              key={pid}
+              className={`px-3 py-2 rounded-lg border flex items-center gap-2 transition-all ${
+                hasPlayerAgreed
+                  ? 'bg-green-900/30 border-green-500 text-green-300'
+                  : 'bg-slate-700/50 border-slate-600 text-slate-400'
+              } ${isMe ? 'ring-2 ring-cyan-500' : ''}`}
+            >
+              <span className="text-lg">{character.emoji}</span>
+              <span className="text-sm font-medium">{character.name}</span>
+              {isMe && <span className="text-xs text-cyan-400">(You)</span>}
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                hasPlayerAgreed ? 'bg-green-500' : 'bg-slate-600'
+              }`}>
+                {hasPlayerAgreed ? (
+                  <Check className="w-3 h-3 text-white" />
+                ) : (
+                  <X className="w-3 h-3 text-slate-400" />
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-xs text-slate-500 text-center mb-4">
+        {Object.values(agreements || {}).filter(Boolean).length}/{allPlayers.length} crew members have agreed
+      </p>
+
+      {!hasAgreed && (
+        <div className="text-center">
+          <button
+            onClick={onAgree}
+            className="bg-green-600 hover:bg-green-500 px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 mx-auto"
+          >
+            <Check className="w-4 h-4" />
+            I Agree with These Assessments
+          </button>
+          <p className="text-xs text-slate-500 mt-2">
+            Click to confirm you agree with the team's criteria assessments
+          </p>
+        </div>
+      )}
+
+      {hasAgreed && !allAgreed && (
+        <p className="text-center text-amber-400 text-sm">
+          Waiting for other crew members to agree...
+        </p>
+      )}
+    </div>
+  );
+};
+
+const Level4 = ({ onNavigateToLevel }) => {
+  const { gameState, updateLevelState, completeLevel, navigateToLevel, playerId } = useGame();
   const [showData, setShowData] = useState(true);
   const [showPreviousWork, setShowPreviousWork] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [showLevelComplete, setShowLevelComplete] = useState(false);
+
+  // Track if we're currently in editing mode (returning from sampling plan)
+  const [isEditingMode, setIsEditingMode] = useState(false);
 
   // Get data from previous levels
   const selectedCriteria = gameState?.level1?.selectedCriteria || [];
   const samplingPlan = gameState?.level3?.samplingPlan || {};
 
-  // Generate fake data based on sampling plan
+  // Get synced state from Firebase
+  const level4State = gameState?.level4 || {};
+  const syncedAssessments = level4State.criteriaAssessments || {};
+  const syncedAgreements = level4State.playerAgreements || {};
+  const trialDataSeed = level4State.trialDataSeed;
+
+  // Local state for assessments - sync with Firebase
+  const [localAssessments, setLocalAssessments] = useState(syncedAssessments);
+
+  // Check if current player has agreed
+  const hasAgreed = syncedAgreements[playerId] === true;
+
+  // Check if all players have agreed
+  const allPlayers = Object.keys(gameState?.players || {});
+  const allAgreed = allPlayers.length > 0 && allPlayers.every(pid => syncedAgreements[pid] === true);
+
+  // Generate a consistent seed for this game's trial data
+  // Use the team creation timestamp + game code to ensure uniqueness per game
+  const gameSeed = useMemo(() => {
+    if (trialDataSeed) {
+      // Use the seed stored in Firebase for consistency
+      return trialDataSeed;
+    }
+    // Generate new seed based on game creation time and code
+    const createdAt = gameState?.meta?.createdAt || Date.now();
+    const codeHash = gameState?.gameCode?.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 0;
+    return createdAt + codeHash;
+  }, [trialDataSeed, gameState?.meta?.createdAt, gameState?.gameCode]);
+
+  // Store the seed in Firebase if not already stored
+  useEffect(() => {
+    if (!trialDataSeed && gameSeed && gameState?.gameCode) {
+      updateLevelState('level4', { trialDataSeed: gameSeed });
+    }
+  }, [trialDataSeed, gameSeed, gameState?.gameCode, updateLevelState]);
+
+  // Generate fake data based on sampling plan with consistent seed
   const { data: generatedData, scatterData, anomalies, uncoveredCriteria } = useMemo(() => {
-    return generateFakeData(samplingPlan, selectedCriteria, gameState?.gameCode?.charCodeAt(0) || 42);
-  }, [samplingPlan, selectedCriteria, gameState?.gameCode]);
+    return generateFakeData(samplingPlan, selectedCriteria, gameSeed);
+  }, [samplingPlan, selectedCriteria, gameSeed]);
+
+  // Sync local assessments with Firebase state
+  useEffect(() => {
+    if (Object.keys(syncedAssessments).length > 0) {
+      setLocalAssessments(syncedAssessments);
+    }
+  }, [syncedAssessments]);
+
+  // Check if level is already submitted (from Firebase)
+  useEffect(() => {
+    if (level4State.completedAt && !isEditingMode) {
+      setIsSubmitted(true);
+    }
+  }, [level4State.completedAt, isEditingMode]);
 
   // Determine the "correct" answers based on data with detailed explanations
   const correctAnswers = useMemo(() => {
@@ -689,14 +823,34 @@ const Level4 = () => {
     return answers;
   }, [selectedCriteria, generatedData, anomalies]);
 
-  const handleAssessmentChange = (criteriaId, value) => {
-    setCriteriaAssessments(prev => ({
-      ...prev,
+  // Handle assessment change - sync to Firebase
+  const handleAssessmentChange = useCallback((criteriaId, value) => {
+    const newAssessments = {
+      ...localAssessments,
       [criteriaId]: value
-    }));
-  };
+    };
+    setLocalAssessments(newAssessments);
 
-  const allCriteriaAssessed = selectedCriteria.every(c => criteriaAssessments[c?.id]);
+    // Sync to Firebase - reset agreements when assessments change
+    updateLevelState('level4', {
+      criteriaAssessments: newAssessments,
+      playerAgreements: {} // Reset agreements when any assessment changes
+    });
+  }, [localAssessments, updateLevelState]);
+
+  // Handle player agreement
+  const handleAgree = useCallback(() => {
+    const newAgreements = {
+      ...syncedAgreements,
+      [playerId]: true
+    };
+
+    updateLevelState('level4', {
+      playerAgreements: newAgreements
+    });
+  }, [syncedAgreements, playerId, updateLevelState]);
+
+  const allCriteriaAssessed = selectedCriteria.every(c => localAssessments[c?.id]);
 
   const calculateScore = () => {
     let score = 0;
@@ -704,7 +858,7 @@ const Level4 = () => {
 
     selectedCriteria.forEach(criteria => {
       if (!criteria?.id) return;
-      const userAnswer = criteriaAssessments[criteria.id];
+      const userAnswer = localAssessments[criteria.id];
       const correct = correctAnswers[criteria.id];
 
       // Points for attempting
@@ -737,7 +891,7 @@ const Level4 = () => {
     const { score, correctCount } = calculateScore();
 
     updateLevelState('level4', {
-      criteriaAssessments,
+      criteriaAssessments: localAssessments,
       correctAnswers,
       score,
       correctCount,
@@ -748,15 +902,46 @@ const Level4 = () => {
   };
 
   const handleReturnToSampling = () => {
-    // Reset submission state and navigate back to Level 3 (sampling plan)
+    // Reset Level 4 state to allow fresh assessment after editing sampling plan
+    updateLevelState('level4', {
+      criteriaAssessments: {},
+      playerAgreements: {},
+      correctAnswers: null,
+      score: 0,
+      correctCount: 0,
+      completedAt: null,
+      // Clear the trialDataSeed so new data is generated for the new sampling plan
+      trialDataSeed: null,
+    });
+
+    // Reset local state
     setIsSubmitted(false);
-    setCriteriaAssessments({});
+    setLocalAssessments({});
+    setIsEditingMode(true);
+
+    // Navigate to Level 3 (sampling plan)
     navigateToLevel(3);
   };
 
   const handleCompleteGame = () => {
+    setShowLevelComplete(true);
+  };
+
+  const handleFinalComplete = () => {
     completeLevel(4);
   };
+
+  // Show the LevelComplete transition screen before the certificate
+  if (showLevelComplete) {
+    const { score } = calculateScore();
+    return (
+      <LevelComplete
+        level={4}
+        score={score}
+        onContinue={handleFinalComplete}
+      />
+    );
+  }
 
   if (isSubmitted) {
     const { score, correctCount } = calculateScore();
@@ -765,7 +950,7 @@ const Level4 = () => {
     const disasters = [];
     selectedCriteria.forEach(criteria => {
       if (!criteria?.id) return;
-      const userAnswer = criteriaAssessments[criteria.id];
+      const userAnswer = localAssessments[criteria.id];
       const correct = correctAnswers[criteria.id];
       const isCorrect = userAnswer === correct.met;
 
@@ -798,31 +983,31 @@ const Level4 = () => {
           <div className="text-center mb-8">
             {disasters.length === 0 ? (
               <>
-                <div className="text-6xl mb-4">🏆</div>
+                <div className="text-6xl mb-4">[Trophy]</div>
                 <h2 className="text-4xl font-bold text-green-400 mb-2">Perfect Assessment!</h2>
-                <p className="text-slate-400">Star Bites production can proceed safely</p>
+                <p className="text-slate-400">Joy Bites production can proceed safely</p>
               </>
             ) : onlyStatisticalWarnings ? (
               <>
-                <div className="text-6xl mb-4">📊</div>
+                <div className="text-6xl mb-4">[Chart]</div>
                 <h2 className="text-4xl font-bold text-purple-400 mb-2">Assessments Correct, But...</h2>
                 <p className="text-purple-300">Your assessments were right, but sample sizes are too small for statistical confidence</p>
               </>
             ) : criticalCount > 0 ? (
               <>
-                <div className="text-6xl mb-4">💥</div>
+                <div className="text-6xl mb-4">[Alert]</div>
                 <h2 className="text-4xl font-bold text-red-400 mb-2">Production Crisis!</h2>
                 <p className="text-red-300">Your assessment errors would cause serious problems in production</p>
               </>
             ) : majorCount > 0 ? (
               <>
-                <div className="text-6xl mb-4">⚠️</div>
+                <div className="text-6xl mb-4">[Warning]</div>
                 <h2 className="text-4xl font-bold text-orange-400 mb-2">Quality Issues Detected</h2>
                 <p className="text-orange-300">Your assessment would lead to significant production problems</p>
               </>
             ) : (
               <>
-                <div className="text-6xl mb-4">📋</div>
+                <div className="text-6xl mb-4">[Clipboard]</div>
                 <h2 className="text-4xl font-bold text-amber-400 mb-2">Assessment Complete</h2>
                 <p className="text-slate-400">Some minor issues would impact production efficiency</p>
               </>
@@ -880,7 +1065,7 @@ const Level4 = () => {
                 What Would Happen in Production
               </h3>
               <p className="text-sm text-slate-400 mb-4">
-                Based on your assessments, here's what would likely happen when Star Bites goes into full production.
+                Based on your assessments, here's what would likely happen when Joy Bites goes into full production.
                 {disasters.some(d => d.isStatisticalWarning) && (
                   <span className="text-purple-400"> Note: Some criteria were assessed correctly but lack statistical confidence (n&lt;{MIN_SAMPLES_FOR_STATISTICAL_VALIDITY} samples per measurement).</span>
                 )}
@@ -912,12 +1097,12 @@ const Level4 = () => {
                       {isStatisticalWarning && correct.sampleDetails?.length > 0 && (
                         <div className="bg-purple-900/30 border border-purple-700/50 rounded p-2 mb-3">
                           <p className="text-xs text-purple-300 font-medium mb-1">
-                            📊 Sample Size Details (Minimum required: {MIN_SAMPLES_FOR_STATISTICAL_VALIDITY})
+                            Sample Size Details (Minimum required: {MIN_SAMPLES_FOR_STATISTICAL_VALIDITY})
                           </p>
                           <div className="text-xs space-y-0.5">
                             {correct.sampleDetails.map((s, i) => (
                               <p key={i} className={s.meetsMinimum ? 'text-green-400' : 'text-red-400'}>
-                                • {s.description}: n={s.count} {s.meetsMinimum ? '✓' : `⚠️ (need ${MIN_SAMPLES_FOR_STATISTICAL_VALIDITY - s.count} more)`}
+                                - {s.description}: n={s.count} {s.meetsMinimum ? '(OK)' : `(need ${MIN_SAMPLES_FOR_STATISTICAL_VALIDITY - s.count} more)`}
                               </p>
                             ))}
                           </div>
@@ -933,10 +1118,10 @@ const Level4 = () => {
                             {userAnswer === 'yes' ? 'Met' : userAnswer === 'no' ? 'Not Met' : 'Insufficient Data'}
                           </span>
                           {isStatisticalWarning ? (
-                            <span className="text-purple-400"> → Answer correct but data not statistically valid</span>
+                            <span className="text-purple-400"> - Answer correct but data not statistically valid</span>
                           ) : (
                             <>
-                              {' → '}
+                              {' -> '}
                               Correct: <span className="text-cyan-400">
                                 {correct.met === 'yes' ? 'Met' : correct.met === 'no' ? 'Not Met' : 'Insufficient Data'}
                               </span>
@@ -960,7 +1145,7 @@ const Level4 = () => {
             <div className="space-y-4">
               {selectedCriteria.map((criteria, index) => {
                 if (!criteria?.id) return null;
-                const userAnswer = criteriaAssessments[criteria.id];
+                const userAnswer = localAssessments[criteria.id];
                 const correct = correctAnswers[criteria.id];
                 const isCorrect = userAnswer === correct.met;
 
@@ -999,14 +1184,14 @@ const Level4 = () => {
                           <div className={`p-2 rounded ${isCorrect ? 'bg-green-900/30' : 'bg-slate-900/50'}`}>
                             <span className="text-slate-400">Your answer: </span>
                             <span className={isCorrect ? 'text-green-400 font-medium' : 'text-red-400 font-medium'}>
-                              {userAnswer === 'yes' ? '✓ Met' : userAnswer === 'no' ? '✗ Not Met' : '? Insufficient Data'}
+                              {userAnswer === 'yes' ? 'Met' : userAnswer === 'no' ? 'Not Met' : 'Insufficient Data'}
                             </span>
                           </div>
                           {!isCorrect && (
                             <div className="p-2 rounded bg-cyan-900/30">
                               <span className="text-slate-400">Correct answer: </span>
                               <span className="text-cyan-400 font-medium">
-                                {correct.met === 'yes' ? '✓ Met' : correct.met === 'no' ? '✗ Not Met' : '? Insufficient Data'}
+                                {correct.met === 'yes' ? 'Met' : correct.met === 'no' ? 'Not Met' : 'Insufficient Data'}
                               </span>
                             </div>
                           )}
@@ -1038,15 +1223,15 @@ const Level4 = () => {
                                 <div className="mt-2">
                                   <p className={`text-xs font-medium ${correct.statisticallySound ? 'text-green-500' : 'text-purple-400'}`}>
                                     {correct.statisticallySound
-                                      ? `✓ Statistically valid (total n=${correct.totalSamples})`
-                                      : `⚠️ Sample size below minimum (total n=${correct.totalSamples}, need n≥${MIN_SAMPLES_FOR_STATISTICAL_VALIDITY} per test)`
+                                      ? `Statistically valid (total n=${correct.totalSamples})`
+                                      : `Sample size below minimum (total n=${correct.totalSamples}, need n>=${MIN_SAMPLES_FOR_STATISTICAL_VALIDITY} per test)`
                                     }
                                   </p>
                                   {!correct.statisticallySound && (
                                     <div className="mt-1 space-y-0.5">
                                       {correct.sampleDetails.map((s, i) => (
                                         <p key={i} className={`text-xs ${s.meetsMinimum ? 'text-slate-500' : 'text-red-400'}`}>
-                                          • {s.description}: n={s.count} {s.meetsMinimum ? '' : `(need ${MIN_SAMPLES_FOR_STATISTICAL_VALIDITY - s.count} more)`}
+                                          - {s.description}: n={s.count} {s.meetsMinimum ? '' : `(need ${MIN_SAMPLES_FOR_STATISTICAL_VALIDITY - s.count} more)`}
                                         </p>
                                       ))}
                                     </div>
@@ -1058,12 +1243,12 @@ const Level4 = () => {
                               {correct.minorAnomalies?.length > 0 && (
                                 <div className="mt-2">
                                   <p className="text-xs font-medium text-amber-400">
-                                    ⚠️ Minor deviations noted ({correct.minorAnomalies.length}):
+                                    Minor deviations noted ({correct.minorAnomalies.length}):
                                   </p>
                                   <div className="mt-1 space-y-0.5">
                                     {correct.minorAnomalies.map((a, i) => (
                                       <p key={i} className="text-xs text-amber-300">
-                                        • {a.step} {a.test}: {a.value}{a.unit} (expected {a.expected})
+                                        - {a.step} {a.test}: {a.value}{a.unit} (expected {a.expected})
                                       </p>
                                     ))}
                                   </div>
@@ -1134,9 +1319,26 @@ const Level4 = () => {
                 For each success criteria, determine if the data supports that the criteria was met,
                 not met, or if there's insufficient data to determine.
               </p>
+              <p className="text-sm text-amber-200 mt-2">
+                <strong>Team Collaboration:</strong> All crew members must agree on the assessments before submitting.
+                Discuss your findings and reach consensus as a team!
+              </p>
             </div>
           </div>
         </div>
+
+        {/* Crew Agreement Panel - Show when assessments are made */}
+        {allCriteriaAssessed && (
+          <CrewAgreementPanel
+            players={gameState?.players}
+            agreements={syncedAgreements}
+            playerId={playerId}
+            onAgree={handleAgree}
+            hasAgreed={hasAgreed}
+            allAgreed={allAgreed}
+            gameState={gameState}
+          />
+        )}
 
         {/* View Previous Work Button */}
         <div className="mb-6">
@@ -1182,7 +1384,7 @@ const Level4 = () => {
                   <p>Criteria Coverage: {gameState?.level3?.criteriaCoverage?.covered || 0} / {selectedCriteria.length}</p>
                   {uncoveredCriteria.length > 0 && (
                     <p className="text-amber-400">
-                      ⚠ {uncoveredCriteria.length} criteria not covered by sampling plan
+                      Warning: {uncoveredCriteria.length} criteria not covered by sampling plan
                     </p>
                   )}
                 </div>
@@ -1244,7 +1446,7 @@ const Level4 = () => {
                                 </span>
                                 <div className="text-xs text-slate-500 mt-1">
                                   n={result.sampleCount}
-                                  {!result.inSpec && ` • Expected: ${result.expected}`}
+                                  {!result.inSpec && ` - Expected: ${result.expected}`}
                                 </div>
                               </td>
                             ))}
@@ -1302,7 +1504,7 @@ const Level4 = () => {
                   <ul className="text-sm space-y-1">
                     {anomalies.map((a, i) => (
                       <li key={i} className={`flex items-center gap-2 ${a.severity === 'critical' ? 'text-red-300' : 'text-amber-300'}`}>
-                        {a.severity === 'critical' ? '🔴' : '🟡'}
+                        {a.severity === 'critical' ? '[Critical]' : '[Warning]'}
                         <span className="capitalize">{a.step}</span> - {a.test}: {a.value} {a.unit}
                         <span className="text-slate-500">(expected {a.expected}, n={a.sampleCount})</span>
                       </li>
@@ -1327,7 +1529,7 @@ const Level4 = () => {
           <div className="space-y-4">
             {selectedCriteria.map((criteria, index) => {
               if (!criteria?.id) return null;
-              const assessment = criteriaAssessments[criteria.id];
+              const assessment = localAssessments[criteria.id];
               const isUncovered = uncoveredCriteria.some(c => c?.id === criteria.id);
               const correctData = correctAnswers[criteria.id];
               const hasInsufficientSamples = correctData && !correctData.statisticallySound && correctData.sampleDetails?.length > 0;
@@ -1354,13 +1556,13 @@ const Level4 = () => {
                       {!isUncovered && hasInsufficientSamples && (
                         <div className="mt-1">
                           <p className="text-xs text-purple-400 flex items-center gap-1">
-                            📊 Sample size below minimum (n&lt;{MIN_SAMPLES_FOR_STATISTICAL_VALIDITY} per test)
+                            Sample size below minimum (n&lt;{MIN_SAMPLES_FOR_STATISTICAL_VALIDITY} per test)
                           </p>
                           <div className="text-xs text-slate-500 ml-4">
                             {correctData.sampleDetails.map((s, i) => (
                               <span key={i} className={s.meetsMinimum ? '' : 'text-purple-400'}>
                                 {s.description}: n={s.count}
-                                {i < correctData.sampleDetails.length - 1 ? ' • ' : ''}
+                                {i < correctData.sampleDetails.length - 1 ? ' - ' : ''}
                               </span>
                             ))}
                           </div>
@@ -1368,12 +1570,12 @@ const Level4 = () => {
                       )}
                       {!isUncovered && correctData?.statisticallySound && correctData?.sampleDetails?.length > 0 && (
                         <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
-                          ✓ Statistically valid (total n={correctData.totalSamples})
+                          Statistically valid (total n={correctData.totalSamples})
                         </p>
                       )}
                       {!isUncovered && correctData?.minorAnomalies?.length > 0 && (
                         <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
-                          ⚠️ Minor deviations noted ({correctData.minorAnomalies.length}) - within acceptable tolerances
+                          Minor deviations noted ({correctData.minorAnomalies.length}) - within acceptable tolerances
                         </p>
                       )}
                     </div>
@@ -1394,9 +1596,9 @@ const Level4 = () => {
                             : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                         }`}
                       >
-                        {option === 'yes' && '✓ Met'}
-                        {option === 'no' && '✗ Not Met'}
-                        {option === 'insufficient' && '? Insufficient Data'}
+                        {option === 'yes' && 'Met'}
+                        {option === 'no' && 'Not Met'}
+                        {option === 'insufficient' && 'Insufficient Data'}
                       </button>
                     ))}
                   </div>
@@ -1410,17 +1612,21 @@ const Level4 = () => {
         <div className="text-center">
           <button
             onClick={handleSubmit}
-            disabled={!allCriteriaAssessed}
+            disabled={!allCriteriaAssessed || !allAgreed}
             className="flex items-center gap-2 mx-auto bg-green-600 hover:bg-green-500 disabled:bg-slate-600 disabled:cursor-not-allowed px-8 py-3 rounded-lg font-semibold text-lg transition-colors"
           >
             <Send className="w-5 h-5" />
             Submit Final Assessment
           </button>
-          {!allCriteriaAssessed && (
+          {!allCriteriaAssessed ? (
             <p className="text-slate-500 text-sm mt-2">
-              Assess all {selectedCriteria.length} success criteria to submit
+              Assess all {selectedCriteria.length} success criteria to continue
             </p>
-          )}
+          ) : !allAgreed ? (
+            <p className="text-amber-400 text-sm mt-2">
+              All crew members must agree before submitting ({Object.values(syncedAgreements).filter(Boolean).length}/{allPlayers.length} agreed)
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

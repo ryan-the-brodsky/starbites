@@ -43,7 +43,7 @@ const Header = () => {
               </div>
               <div className="hidden sm:block">
                 <div className="text-sm font-bold text-cyan-300">MISSION NORTH STAR</div>
-                <div className="text-[10px] text-slate-500">Star Bites Training</div>
+                <div className="text-[10px] text-slate-500">Joy Bites Training</div>
               </div>
             </Link>
 

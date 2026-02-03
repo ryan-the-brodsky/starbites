@@ -18,9 +18,9 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Check localStorage for existing auth state
-    const storedAuth = localStorage.getItem('starbites_auth');
-    const storedAdmin = localStorage.getItem('starbites_admin');
-    const storedTestMode = localStorage.getItem('starbites_test_mode');
+    const storedAuth = localStorage.getItem('joybites_auth');
+    const storedAdmin = localStorage.getItem('joybites_admin');
+    const storedTestMode = localStorage.getItem('joybites_test_mode');
     if (storedAuth === 'true') {
       setIsAuthenticated(true);
     }
@@ -43,7 +43,7 @@ export const AuthProvider = ({ children }) => {
     });
     if (password === sitePassword) {
       setIsAuthenticated(true);
-      localStorage.setItem('starbites_auth', 'true');
+      localStorage.setItem('joybites_auth', 'true');
       console.log('[Auth] Login successful');
       return true;
     }
@@ -56,8 +56,8 @@ export const AuthProvider = ({ children }) => {
     if (password === adminPassword) {
       setIsAdmin(true);
       setIsAuthenticated(true);
-      localStorage.setItem('starbites_admin', 'true');
-      localStorage.setItem('starbites_auth', 'true');
+      localStorage.setItem('joybites_admin', 'true');
+      localStorage.setItem('joybites_auth', 'true');
       return true;
     }
     return false;
@@ -67,18 +67,18 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
     setIsAdmin(false);
     setIsTestMode(false);
-    localStorage.removeItem('starbites_auth');
-    localStorage.removeItem('starbites_admin');
-    localStorage.removeItem('starbites_test_mode');
+    localStorage.removeItem('joybites_auth');
+    localStorage.removeItem('joybites_admin');
+    localStorage.removeItem('joybites_test_mode');
   };
 
   const toggleTestMode = () => {
     const newValue = !isTestMode;
     setIsTestMode(newValue);
     if (newValue) {
-      localStorage.setItem('starbites_test_mode', 'true');
+      localStorage.setItem('joybites_test_mode', 'true');
     } else {
-      localStorage.removeItem('starbites_test_mode');
+      localStorage.removeItem('joybites_test_mode');
     }
   };
 

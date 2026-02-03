@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Target, FileText, CheckCircle2, AlertTriangle, Triangle, ChevronDown, ChevronUp, FlaskConical, Info, Users, Package, ShieldCheck, AlertOctagon, Clock } from 'lucide-react';
+import { Target, FileText, CheckCircle2, AlertTriangle, Triangle, ChevronDown, ChevronUp, FlaskConical, Info, Users, Package, ShieldCheck, AlertOctagon, Clock, Factory } from 'lucide-react';
 import { useGame } from '../../../contexts/GameContext';
 import {
   dfmeaSummary,
@@ -10,6 +10,7 @@ import {
   successCriteriaOptions
 } from '../../../data/missionData';
 import { getPlayerCharacter } from '../../../data/characters';
+import LevelComplete from '../../common/LevelComplete';
 
 // Role display information
 const ROLE_INFO = {
@@ -30,6 +31,12 @@ const ROLE_INFO = {
     icon: ShieldCheck,
     color: 'green',
     description: 'Focus on testing standards, compliance, and quality metrics'
+  },
+  pim: {
+    name: 'PIM',
+    icon: Factory,
+    color: 'purple',
+    description: 'Focus on plant runnability, operations, and equipment compatibility'
   }
 };
 
@@ -37,6 +44,7 @@ const colorClasses = {
   cyan: { bg: 'bg-cyan-900/30', border: 'border-cyan-500', text: 'text-cyan-400', badge: 'bg-cyan-500/20 text-cyan-300' },
   orange: { bg: 'bg-orange-900/30', border: 'border-orange-500', text: 'text-orange-400', badge: 'bg-orange-500/20 text-orange-300' },
   green: { bg: 'bg-green-900/30', border: 'border-green-500', text: 'text-green-400', badge: 'bg-green-500/20 text-green-300' },
+  purple: { bg: 'bg-purple-900/30', border: 'border-purple-500', text: 'text-purple-400', badge: 'bg-purple-500/20 text-purple-300' },
 };
 
 const SuccessCriteria = ({ onNavigateToLevel }) => {
@@ -57,6 +65,7 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
   const [expandedDfmea, setExpandedDfmea] = useState(false);
   const [expandedUx, setExpandedUx] = useState(false);
   const [hasConfirmed, setHasConfirmed] = useState(false);
+  const [showLevelComplete, setShowLevelComplete] = useState(false);
 
   // Get role-specific criteria
   const myCriteria = getCriteriaByRole(functionalRole);
@@ -201,6 +210,11 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
   };
 
   const handleCompleteLevel = () => {
+    // Show level complete screen first
+    setShowLevelComplete(true);
+  };
+
+  const handleLevelCompleteContinue = () => {
     // Merge all confirmed criteria from all roles
     const allSelectedCriteria = [];
     Object.keys(ROLE_INFO).forEach(role => {
@@ -222,7 +236,18 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
       completedAt: Date.now(),
     });
 
-    setTimeout(() => completeLevel(1), 2500);
+    completeLevel(1);
+    setShowLevelComplete(false);
+  };
+
+  // Calculate level 1 score for display
+  const calculateLevel1Score = () => {
+    let total = 0;
+    Object.keys(ROLE_INFO).forEach(role => {
+      const status = getRoleConsensusStatus(role);
+      total += status.criteria.length * 50;
+    });
+    return Math.max(0, total - missingRolePenalty);
   };
 
   // Check if player is ready for pretrial
@@ -239,6 +264,17 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
       onNavigateToLevel(2);
     }
   };
+
+  // Show level complete transition screen
+  if (showLevelComplete) {
+    return (
+      <LevelComplete
+        level={1}
+        score={calculateLevel1Score()}
+        onContinue={handleLevelCompleteContinue}
+      />
+    );
+  }
 
   // Show completion screen
   if (gameState?.level1?.completedAt) {
@@ -418,7 +454,7 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
             <Users className="w-4 h-4" />
             Team Consensus Status
           </h3>
-          <div className="grid md:grid-cols-3 gap-3">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
             {Object.entries(ROLE_INFO).map(([roleKey, info]) => {
               const status = getRoleConsensusStatus(roleKey);
               const roleColors = colorClasses[info.color];

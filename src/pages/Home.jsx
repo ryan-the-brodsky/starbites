@@ -85,8 +85,8 @@ const Home = () => {
           <h1 className="text-5xl font-bold mb-2 bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
             MISSION NORTH STAR
           </h1>
-          <p className="text-xl text-cyan-300">Star Bites Production Training</p>
-          <p className="text-slate-400 mt-2">Launch Star Bites into Orbit!</p>
+          <p className="text-xl text-cyan-300">Joy Bites Production Training</p>
+          <p className="text-slate-400 mt-2">A Taste of Home, Even in Orbit</p>
         </div>
 
         {/* Team Selection */}

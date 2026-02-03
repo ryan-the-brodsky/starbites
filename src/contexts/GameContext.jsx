@@ -112,10 +112,10 @@ export const GameProvider = ({ children }) => {
 
   // Initialize player ID and check Firebase
   useEffect(() => {
-    let storedPlayerId = localStorage.getItem('starbites_player_id');
+    let storedPlayerId = localStorage.getItem('joybites_player_id');
     if (!storedPlayerId) {
       storedPlayerId = generatePlayerId();
-      localStorage.setItem('starbites_player_id', storedPlayerId);
+      localStorage.setItem('joybites_player_id', storedPlayerId);
     }
     setPlayerId(storedPlayerId);
 
@@ -125,10 +125,10 @@ export const GameProvider = ({ children }) => {
 
     if (!firebaseEnabled) {
       // Fall back to localStorage
-      const storedGameCode = localStorage.getItem('starbites_current_game');
-      const storedRole = localStorage.getItem('starbites_role');
+      const storedGameCode = localStorage.getItem('joybites_current_game');
+      const storedRole = localStorage.getItem('joybites_role');
       if (storedGameCode) {
-        const storedGame = localStorage.getItem(`starbites_game_${storedGameCode}`);
+        const storedGame = localStorage.getItem(`joybites_game_${storedGameCode}`);
         if (storedGame) {
           setGameState(JSON.parse(storedGame));
           setRole(storedRole);
@@ -138,7 +138,7 @@ export const GameProvider = ({ children }) => {
       const allStoredGames = {};
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key?.startsWith('starbites_game_')) {
+        if (key?.startsWith('joybites_game_')) {
           const game = JSON.parse(localStorage.getItem(key));
           allStoredGames[game.gameCode] = game;
         }
@@ -172,8 +172,8 @@ export const GameProvider = ({ children }) => {
   // Persist game state to localStorage (fallback)
   const persistGameLocal = useCallback((state) => {
     if (state) {
-      localStorage.setItem(`starbites_game_${state.gameCode}`, JSON.stringify(state));
-      localStorage.setItem('starbites_current_game', state.gameCode);
+      localStorage.setItem(`joybites_game_${state.gameCode}`, JSON.stringify(state));
+      localStorage.setItem('joybites_current_game', state.gameCode);
     }
   }, []);
 
@@ -239,10 +239,10 @@ export const GameProvider = ({ children }) => {
     // Get player ID
     let currentPlayerId = playerId;
     if (!currentPlayerId) {
-      currentPlayerId = localStorage.getItem('starbites_player_id');
+      currentPlayerId = localStorage.getItem('joybites_player_id');
       if (!currentPlayerId) {
         currentPlayerId = generatePlayerId();
-        localStorage.setItem('starbites_player_id', currentPlayerId);
+        localStorage.setItem('joybites_player_id', currentPlayerId);
       }
       setPlayerId(currentPlayerId);
     }
@@ -258,7 +258,7 @@ export const GameProvider = ({ children }) => {
         console.error('Error checking existing game:', error);
       }
     } else {
-      const existingGame = localStorage.getItem(`starbites_game_${teamId}`);
+      const existingGame = localStorage.getItem(`joybites_game_${teamId}`);
       if (existingGame) {
         return { success: false, error: 'A team with this name already exists. Try a different name or join the existing team.' };
       }
@@ -290,8 +290,8 @@ export const GameProvider = ({ children }) => {
 
     setGameState(newGame);
     setRole('commander');
-    localStorage.setItem('starbites_role', 'commander');
-    localStorage.setItem('starbites_current_game', teamId);
+    localStorage.setItem('joybites_role', 'commander');
+    localStorage.setItem('joybites_current_game', teamId);
 
     return { success: true, teamId };
   }, [playerId, useFirebase, persistGameLocal, subscribeToGameUpdates]);
@@ -303,10 +303,10 @@ export const GameProvider = ({ children }) => {
     // Get player ID
     let currentPlayerId = playerId;
     if (!currentPlayerId) {
-      currentPlayerId = localStorage.getItem('starbites_player_id');
+      currentPlayerId = localStorage.getItem('joybites_player_id');
       if (!currentPlayerId) {
         currentPlayerId = generatePlayerId();
-        localStorage.setItem('starbites_player_id', currentPlayerId);
+        localStorage.setItem('joybites_player_id', currentPlayerId);
       }
       setPlayerId(currentPlayerId);
     }
@@ -320,7 +320,7 @@ export const GameProvider = ({ children }) => {
         console.error('Error getting game from Firebase:', error);
       }
     } else {
-      const storedGame = localStorage.getItem(`starbites_game_${teamId}`);
+      const storedGame = localStorage.getItem(`joybites_game_${teamId}`);
       if (storedGame) {
         game = JSON.parse(storedGame);
       }
@@ -331,8 +331,8 @@ export const GameProvider = ({ children }) => {
       if (game.players && game.players[currentPlayerId]) {
         setGameState(game);
         setRole(game.players[currentPlayerId].role);
-        localStorage.setItem('starbites_role', game.players[currentPlayerId].role);
-        localStorage.setItem('starbites_current_game', teamId);
+        localStorage.setItem('joybites_role', game.players[currentPlayerId].role);
+        localStorage.setItem('joybites_current_game', teamId);
 
         if (useFirebase) {
           subscribeToGameUpdates(teamId);
@@ -383,8 +383,8 @@ export const GameProvider = ({ children }) => {
 
       setGameState(game);
       setRole('crew');
-      localStorage.setItem('starbites_role', 'crew');
-      localStorage.setItem('starbites_current_game', teamId);
+      localStorage.setItem('joybites_role', 'crew');
+      localStorage.setItem('joybites_current_game', teamId);
 
       return { success: true, teamId };
     }
@@ -578,7 +578,7 @@ export const GameProvider = ({ children }) => {
       }
 
       // Also store in localStorage for quick access
-      localStorage.setItem('starbites_functional_role', functionalRole);
+      localStorage.setItem('joybites_functional_role', functionalRole);
 
       return newState;
     });
@@ -860,8 +860,8 @@ export const GameProvider = ({ children }) => {
     // Clear local state
     setGameState(null);
     setRole(null);
-    localStorage.removeItem('starbites_current_game');
-    localStorage.removeItem('starbites_role');
+    localStorage.removeItem('joybites_current_game');
+    localStorage.removeItem('joybites_role');
   }, []);
 
   // Admin: Pause/Resume all games
@@ -880,7 +880,7 @@ export const GameProvider = ({ children }) => {
             ...prev[code],
             meta: { ...prev[code].meta, isPaused },
           };
-          localStorage.setItem(`starbites_game_${code}`, JSON.stringify(updated[code]));
+          localStorage.setItem(`joybites_game_${code}`, JSON.stringify(updated[code]));
         });
         return updated;
       });
@@ -904,7 +904,7 @@ export const GameProvider = ({ children }) => {
       if (useFirebase) {
         await updateGameInDB(gameCode, resetGame);
       } else {
-        localStorage.setItem(`starbites_game_${gameCode}`, JSON.stringify(resetGame));
+        localStorage.setItem(`joybites_game_${gameCode}`, JSON.stringify(resetGame));
         setAllGames(prev => ({ ...prev, [gameCode]: resetGame }));
       }
 
@@ -919,7 +919,7 @@ export const GameProvider = ({ children }) => {
     if (useFirebase) {
       await removeGameFromDB(gameCode);
     } else {
-      localStorage.removeItem(`starbites_game_${gameCode}`);
+      localStorage.removeItem(`joybites_game_${gameCode}`);
       setAllGames(prev => {
         const updated = { ...prev };
         delete updated[gameCode];
@@ -930,8 +930,8 @@ export const GameProvider = ({ children }) => {
     if (gameState?.gameCode === gameCode) {
       setGameState(null);
       setRole(null);
-      localStorage.removeItem('starbites_current_game');
-      localStorage.removeItem('starbites_role');
+      localStorage.removeItem('joybites_current_game');
+      localStorage.removeItem('joybites_role');
     }
   }, [gameState, useFirebase]);
 

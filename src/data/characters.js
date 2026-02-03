@@ -22,6 +22,12 @@ export const ASTRONAUT_STYLES = {
     visor: 'bg-slate-800',
     accent: 'bg-green-300',
   },
+  pim: {
+    helmet: 'bg-purple-400',
+    suit: 'bg-purple-600',
+    visor: 'bg-slate-800',
+    accent: 'bg-purple-300',
+  },
 };
 
 // Different face expressions for variety
@@ -71,6 +77,16 @@ export const CHARACTER_POOLS = {
     { name: 'Captain Calibrate', emoji: '⚖️', title: 'Balance Boss', faceIdx: 5, badgeIdx: 5 },
     { name: 'Lieutenant Limits', emoji: '📏', title: 'Tolerance Tracker', faceIdx: 6, badgeIdx: 6 },
     { name: 'Sergeant Spec', emoji: '🎯', title: 'Target Tester', faceIdx: 7, badgeIdx: 7 },
+  ],
+  pim: [
+    { name: 'Chief Gearshift', emoji: '⚙️', title: 'Operations Overlord', faceIdx: 0, badgeIdx: 0 },
+    { name: 'Colonel Conveyor', emoji: '🏭', title: 'Line Commander', faceIdx: 1, badgeIdx: 1 },
+    { name: 'Navigator Nozzle', emoji: '🔧', title: 'Equipment Expert', faceIdx: 2, badgeIdx: 2 },
+    { name: 'Ensign Efficiency', emoji: '⚡', title: 'Throughput Titan', faceIdx: 3, badgeIdx: 3 },
+    { name: 'Marshal Maintenance', emoji: '🛠️', title: 'Downtime Destroyer', faceIdx: 4, badgeIdx: 4 },
+    { name: 'Captain Changeover', emoji: '🔄', title: 'Transition Tactician', faceIdx: 5, badgeIdx: 5 },
+    { name: 'Pilot Process', emoji: '📈', title: 'Flow Master', faceIdx: 6, badgeIdx: 6 },
+    { name: 'Lieutenant Lineup', emoji: '🎛️', title: 'Setup Specialist', faceIdx: 7, badgeIdx: 7 },
   ],
 };
 

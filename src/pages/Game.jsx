@@ -176,11 +176,11 @@ const Game = () => {
 
   // Load saved view level and crew intro state from localStorage on mount
   useEffect(() => {
-    const savedLevel = localStorage.getItem(`starbites_view_level_${gameCode}`);
+    const savedLevel = localStorage.getItem(`joybites_view_level_${gameCode}`);
     if (savedLevel) {
       setPlayerViewLevel(parseInt(savedLevel, 10));
     }
-    const seenIntro = localStorage.getItem(`starbites_seen_intro_${gameCode}`);
+    const seenIntro = localStorage.getItem(`joybites_seen_intro_${gameCode}`);
     if (seenIntro === 'true') {
       setHasSeenCrewIntro(true);
     }
@@ -189,19 +189,19 @@ const Game = () => {
   // Handler for continuing past crew intro
   const handleCrewIntroContinue = () => {
     setHasSeenCrewIntro(true);
-    localStorage.setItem(`starbites_seen_intro_${gameCode}`, 'true');
+    localStorage.setItem(`joybites_seen_intro_${gameCode}`, 'true');
   };
 
   // Handler for selecting a level to view
   const handleSelectLevel = (levelNum) => {
     setPlayerViewLevel(levelNum);
-    localStorage.setItem(`starbites_view_level_${gameCode}`, levelNum.toString());
+    localStorage.setItem(`joybites_view_level_${gameCode}`, levelNum.toString());
   };
 
   // Handler for going back to level select
   const handleBackToLevelSelect = () => {
     setPlayerViewLevel(0);
-    localStorage.setItem(`starbites_view_level_${gameCode}`, '0');
+    localStorage.setItem(`joybites_view_level_${gameCode}`, '0');
   };
 
   if (!gameState) {
@@ -297,9 +297,9 @@ const Game = () => {
       <BackToLevelSelect onBack={handleBackToLevelSelect} />
       <main>
         {currentViewLevel === 1 && <SuccessCriteria onNavigateToLevel={handleSelectLevel} />}
-        {currentViewLevel === 2 && <Level1 />}
-        {currentViewLevel === 3 && <Level2 />}
-        {currentViewLevel === 4 && <Level4 />}
+        {currentViewLevel === 2 && <Level1 onNavigateToLevel={handleSelectLevel} />}
+        {currentViewLevel === 3 && <Level2 onNavigateToLevel={handleSelectLevel} />}
+        {currentViewLevel === 4 && <Level4 onNavigateToLevel={handleSelectLevel} />}
       </main>
     </>
   );

@@ -104,7 +104,7 @@ const Certificate = () => {
           {/* Footer */}
           <div className="flex items-center justify-between text-slate-500 text-xs">
             <span>Mission North Star</span>
-            <span>Star Bites Training 2026</span>
+            <span>Joy Bites Training 2026</span>
             <span>Danone North America</span>
           </div>
         </div>

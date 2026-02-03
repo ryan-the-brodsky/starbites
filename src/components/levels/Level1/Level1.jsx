@@ -8,8 +8,9 @@ import PullLever from '../../controls/PullLever';
 import RotaryDial from '../../controls/RotaryDial';
 import HoldButton from '../../controls/HoldButton';
 import { getPlayerCharacter } from '../../../data/characters';
+import LevelComplete from '../../common/LevelComplete';
 
-const TASK_TIME_LIMIT = 5; // seconds per task
+const TASK_TIME_LIMIT = 7; // seconds per task
 const MISS_PENALTY = 25; // points lost for missing a task
 const VISIBLE_UPCOMING_TASKS = 2; // Number of upcoming tasks to show (mystery mode)
 
@@ -25,7 +26,7 @@ const shuffleArray = (array) => {
 
 const MIN_TASKS_PER_PLAYER = 3;
 
-const Level1 = () => {
+const Level1 = ({ onNavigateToLevel }) => {
   const {
     gameState,
     playerId,
@@ -715,16 +716,11 @@ const Level1 = () => {
         </div>
 
         {allPhasesComplete ? (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">🚀</div>
-            <h2 className="text-3xl font-bold text-green-400 mb-2">LEVEL 2 COMPLETE!</h2>
-            <p className="text-4xl font-bold text-cyan-300 mt-4">Score: {gameState.level2?.score || 0}</p>
-            <p className="text-slate-500 mt-2">Penalties: {penalties}</p>
-            {missedTaskCount > 0 && (
-              <p className="text-amber-400 mt-2">Tasks retried: {missedTaskCount}</p>
-            )}
-            <p className="text-slate-400 mt-4">Proceeding to Level 3...</p>
-          </div>
+          <LevelComplete
+            level={2}
+            score={gameState.level2?.score || 0}
+            onContinue={() => onNavigateToLevel && onNavigateToLevel(3)}
+          />
         ) : isCurrentPhaseComplete ? (
           // Phase complete! Show transition message
           <div className="text-center py-12">
@@ -858,16 +854,11 @@ const Level1 = () => {
       )}
 
       {allPhasesComplete ? (
-        <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-green-950 to-slate-950">
-          <div className="text-center">
-            <div className="text-8xl mb-6">🚀</div>
-            <h2 className="text-4xl font-bold text-green-400 mb-4">LEVEL 2 COMPLETE!</h2>
-            <div className="text-5xl font-bold text-cyan-300 mb-2">{gameState.level2?.score || 0} PTS</div>
-            {penalties > 0 && <p className="text-red-400">Errors: {penalties}</p>}
-            {missedTaskCount > 0 && <p className="text-amber-400">Tasks retried: {missedTaskCount}</p>}
-            <p className="text-slate-400 mt-4">Loading Level 3...</p>
-          </div>
-        </div>
+        <LevelComplete
+          level={2}
+          score={gameState.level2?.score || 0}
+          onContinue={() => onNavigateToLevel && onNavigateToLevel(3)}
+        />
       ) : (
         <div className="h-screen flex flex-col">
           {/* Top Console Bar */}

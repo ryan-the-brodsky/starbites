@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { CheckCircle2, FlaskConical, Clock, AlertTriangle, X, ArrowRight, Package, Shuffle, Droplets, Flame, Scale, Snowflake, Box, ClipboardCheck, Target, Info, Plus, Minus } from 'lucide-react';
 import { useGame } from '../../../contexts/GameContext';
+import LevelComplete from '../../common/LevelComplete';
 
-// Star Bites Process Flow Steps with icons and available tests
+// Joy Bites Process Flow Steps with icons and available tests
 const processSteps = [
   { id: 'receiving', name: 'Raw Materials', description: 'Receiving & inspection', icon: Package, availableTests: ['temp', 'moisture', 'visual'] },
   { id: 'blending', name: 'Dry Blending', description: 'Ingredient mixing', icon: Shuffle, availableTests: ['moisture', 'particle', 'weight'] },
@@ -37,7 +38,7 @@ const timePoints = [
 
 const MAX_SAMPLES = 300;
 
-const Level2 = () => {
+const Level2 = ({ onNavigateToLevel }) => {
   const { gameState, updateLevelState, completeLevel } = useGame();
   // New structure: samplingPlan[stepId][testId][timePointId] = quantity
   const [samplingPlan, setSamplingPlan] = useState({});
@@ -240,24 +241,12 @@ const Level2 = () => {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-green-950 to-slate-950 flex items-center justify-center">
-        <div className="text-center max-w-2xl mx-auto px-4">
-          <div className="text-8xl mb-6">📊</div>
-          <h2 className="text-4xl font-bold text-green-400 mb-4">SAMPLING PLAN COMPLETE!</h2>
-          <p className="text-slate-300 mb-4">
-            Coverage: {coverage.covered} of {coverage.total} success criteria can be measured
-          </p>
-          <div className="bg-slate-800/50 rounded-xl p-4 mb-6">
-            <p className="text-sm text-slate-400 mb-2">Samples used: {samplesUsed} / {MAX_SAMPLES}</p>
-            {coverage.covered < coverage.total && (
-              <p className="text-sm text-amber-400">
-                Note: Some success criteria may not have sufficient data in the Mission Report
-              </p>
-            )}
-          </div>
-          <p className="text-slate-400">Proceeding to Mission Report...</p>
-        </div>
-      </div>
+      <LevelComplete
+        level={3}
+        score={samplesUsed}
+        onContinue={() => onNavigateToLevel && onNavigateToLevel(4)}
+        customMessage={`Your sampling plan covers ${coverage.covered} of ${coverage.total} success criteria. Samples used: ${samplesUsed}/${MAX_SAMPLES}. Discuss with your team: How did you prioritize which tests to run? What tradeoffs did you make with your sample budget?`}
+      />
     );
   }
 
@@ -347,7 +336,7 @@ const Level2 = () => {
 
         {/* Process Flow Visualization */}
         <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700 mb-6">
-          <h2 className="text-xl font-semibold mb-6 text-center">Star Bites Production Process</h2>
+          <h2 className="text-xl font-semibold mb-6 text-center">Joy Bites Production Process</h2>
 
           {/* Process Flow - Two rows */}
           <div className="space-y-4">

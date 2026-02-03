@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package, FlaskConical, ShieldCheck, Users, Rocket, CheckCircle2 } from 'lucide-react';
+import { Package, FlaskConical, ShieldCheck, Users, Rocket, CheckCircle2, Factory } from 'lucide-react';
 import { useGame } from '../../contexts/GameContext';
 import { getPlayerCharacter } from '../../data/characters';
 
@@ -29,6 +29,14 @@ const ROLES = [
     description: 'Focus on testing standards, compliance, and quality metrics',
     avatar: '/avatars/quality.png',
   },
+  {
+    id: 'pim',
+    name: 'PIM',
+    icon: Factory,
+    color: 'purple',
+    description: 'Focus on plant runnability, operations, and equipment compatibility',
+    avatar: '/avatars/pim.png',
+  },
 ];
 
 // Color classes for each role
@@ -56,6 +64,14 @@ const colorClasses = {
     borderHover: 'hover:border-green-400',
     text: 'text-green-400',
     badge: 'bg-green-500/20 text-green-300',
+  },
+  purple: {
+    bg: 'bg-purple-900/30',
+    bgSelected: 'bg-purple-800/50',
+    border: 'border-purple-500',
+    borderHover: 'hover:border-purple-400',
+    text: 'text-purple-400',
+    badge: 'bg-purple-500/20 text-purple-300',
   },
 };
 
@@ -132,7 +148,7 @@ const RoleSelection = () => {
         </div>
 
         {/* Role Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {ROLES.map((role) => {
             const colors = colorClasses[role.color];
             const Icon = role.icon;
@@ -248,7 +264,7 @@ const RoleSelection = () => {
         {/* Players List */}
         <div className="mt-10 pt-6 border-t border-slate-700">
           <h3 className="text-lg font-semibold text-slate-300 mb-4 text-center">Team Roster</h3>
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
             {ROLES.map((role) => {
               const colors = colorClasses[role.color];
               const players = playersByRole[role.id] || [];

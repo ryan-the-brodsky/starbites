@@ -96,7 +96,7 @@ const PasswordGate = ({ onSuccess, isAdminGate = false }) => {
         </form>
 
         <p className="text-center text-slate-500 text-sm mt-6">
-          Star Bites Training Game - Danone North America 2026
+          Joy Bites Training Game - Danone North America 2026
         </p>
       </div>
     </div>

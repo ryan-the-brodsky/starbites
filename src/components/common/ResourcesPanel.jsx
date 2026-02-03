@@ -32,7 +32,7 @@ const resources = [
   },
   {
     id: 'process-flow',
-    name: 'Star Bites Process Flow',
+    name: 'Joy Bites Process Flow',
     description: 'Production process visualization',
     icon: '🔄',
     type: 'reference',
@@ -40,7 +40,7 @@ const resources = [
   {
     id: 'ingredients',
     name: 'Ingredient Specifications',
-    description: 'Star Bites ingredient requirements',
+    description: 'Joy Bites ingredient requirements',
     icon: '🧪',
     type: 'reference',
   },
