@@ -173,7 +173,7 @@ const Home = () => {
         <div className="mt-8 bg-slate-800/50 border border-slate-700 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-slate-200 mb-3">How to Play</h3>
           <ol className="text-sm text-slate-400 space-y-2">
-            <li><span className="text-cyan-400 font-mono">1.</span> Create a team or join an existing one (up to 4 players per team)</li>
+            <li><span className="text-cyan-400 font-mono">1.</span> Create a team or join an existing one (up to 12 players per team)</li>
             <li><span className="text-cyan-400 font-mono">2.</span> Work through all 4 mission levels together</li>
             <li><span className="text-cyan-400 font-mono">3.</span> Define success criteria, complete checklists, design sampling plans</li>
             <li><span className="text-cyan-400 font-mono">4.</span> Analyze trial data and submit your final mission report</li>

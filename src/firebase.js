@@ -121,4 +121,10 @@ export const subscribeToAllGames = (callback) => {
   });
 };
 
+// Atomic multi-path update - updates multiple paths in a single operation
+export const multiPathUpdate = async (updates) => {
+  if (!database) throw new Error('Firebase not configured');
+  await update(ref(database), updates);
+};
+
 export { database };

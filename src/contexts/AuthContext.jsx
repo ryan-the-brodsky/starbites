@@ -12,20 +12,15 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [isTestMode, setIsTestMode] = useState(false); // Admin test mode for unlocking all levels
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Check localStorage for existing auth state
     const storedAuth = localStorage.getItem('joybites_auth');
-    const storedAdmin = localStorage.getItem('joybites_admin');
     const storedTestMode = localStorage.getItem('joybites_test_mode');
     if (storedAuth === 'true') {
       setIsAuthenticated(true);
-    }
-    if (storedAdmin === 'true') {
-      setIsAdmin(true);
     }
     if (storedTestMode === 'true') {
       setIsTestMode(true);
@@ -35,28 +30,8 @@ export const AuthProvider = ({ children }) => {
 
   const login = (password) => {
     const sitePassword = import.meta.env.VITE_SITE_PASSWORD;
-    console.log('[Auth] Login attempt:', {
-      passwordEntered: password,
-      sitePasswordConfigured: sitePassword,
-      sitePasswordExists: !!sitePassword,
-      match: password === sitePassword
-    });
     if (password === sitePassword) {
       setIsAuthenticated(true);
-      localStorage.setItem('joybites_auth', 'true');
-      console.log('[Auth] Login successful');
-      return true;
-    }
-    console.log('[Auth] Login failed - password mismatch');
-    return false;
-  };
-
-  const loginAdmin = (password) => {
-    const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD;
-    if (password === adminPassword) {
-      setIsAdmin(true);
-      setIsAuthenticated(true);
-      localStorage.setItem('joybites_admin', 'true');
       localStorage.setItem('joybites_auth', 'true');
       return true;
     }
@@ -65,10 +40,8 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     setIsAuthenticated(false);
-    setIsAdmin(false);
     setIsTestMode(false);
     localStorage.removeItem('joybites_auth');
-    localStorage.removeItem('joybites_admin');
     localStorage.removeItem('joybites_test_mode');
   };
 
@@ -84,11 +57,9 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     isAuthenticated,
-    isAdmin,
     isTestMode,
     isLoading,
     login,
-    loginAdmin,
     logout,
     toggleTestMode,
   };

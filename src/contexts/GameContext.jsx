@@ -7,11 +7,10 @@ import {
   updateLevelPathInDB,
   updateMetaInDB,
   addPlayerToDB,
-  removeGameFromDB,
-  getAllGamesFromDB,
   subscribeToGame,
-  subscribeToAllGames,
+  multiPathUpdate,
 } from '../firebase';
+import { useToast } from './ToastContext';
 
 const GameContext = createContext(null);
 
@@ -24,7 +23,7 @@ export const useGame = () => {
 };
 
 // Maximum players per team
-const MAX_PLAYERS_PER_TEAM = 10;
+const MAX_PLAYERS_PER_TEAM = 12;
 
 // Generate a team ID from team name (sanitized, lowercase, no spaces)
 const generateTeamId = (teamName) => {
@@ -37,11 +36,11 @@ const generatePlayerId = () => {
 };
 
 // Functional roles for players (separate from commander/crew game roles)
-const FUNCTIONAL_ROLES = ['productDev', 'packageDev', 'quality'];
+const FUNCTIONAL_ROLES = ['productDev', 'packageDev', 'quality', 'pim'];
 
 // Initial game state structure
 // 4 levels: Success Criteria, Pretrial Checklist, Sampling Plan, Mission Report
-const createInitialGameState = (teamId, teamName) => ({
+export const createInitialGameState = (teamId, teamName) => ({
   gameCode: teamId,
   teamId,
   meta: {
@@ -62,6 +61,7 @@ const createInitialGameState = (teamId, teamName) => ({
       productDev: { playerSelections: {}, confirmedSelections: null, confirmedBy: [] },
       packageDev: { playerSelections: {}, confirmedSelections: null, confirmedBy: [] },
       quality: { playerSelections: {}, confirmedSelections: null, confirmedBy: [] },
+      pim: { playerSelections: {}, confirmedSelections: null, confirmedBy: [] },
     },
     selectedCriteria: [], // Final merged criteria after all roles confirm
     score: 0,
@@ -104,11 +104,23 @@ export const GameProvider = ({ children }) => {
   const [gameState, setGameState] = useState(null);
   const [playerId, setPlayerId] = useState(null);
   const [role, setRole] = useState(null);
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [allGames, setAllGames] = useState({});
   const [useFirebase, setUseFirebase] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const unsubscribeRef = useRef(null);
+  // Stale listener gating: skip Firebase listener updates shortly after local writes
+  const lastLocalWriteRef = useRef(0);
+  const { addToast } = useToast();
+
+  // Handle Firebase errors with user-visible toast
+  const handleFirebaseError = useCallback((error, retryFn) => {
+    console.error('Firebase sync error:', error);
+    addToast(
+      'Changes may not have saved. Check your connection.',
+      'warning',
+      8000,
+      retryFn ? { label: 'Retry', onClick: retryFn } : null
+    );
+  }, [addToast]);
 
   // Initialize player ID and check Firebase
   useEffect(() => {
@@ -134,40 +146,10 @@ export const GameProvider = ({ children }) => {
           setRole(storedRole);
         }
       }
-      // Load all games for admin
-      const allStoredGames = {};
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key?.startsWith('joybites_game_')) {
-          const game = JSON.parse(localStorage.getItem(key));
-          allStoredGames[game.gameCode] = game;
-        }
-      }
-      setAllGames(allStoredGames);
     }
 
     setIsLoading(false);
   }, []);
-
-  // Subscribe to all games for admin/leaderboard when using Firebase
-  useEffect(() => {
-    if (!useFirebase) return;
-
-    const unsubscribe = subscribeToAllGames((games) => {
-      setAllGames(games || {});
-      // Update leaderboard from all games
-      const leaderboardData = Object.values(games || {})
-        .map(game => ({
-          teamName: game.meta?.teamName || 'Unknown',
-          score: game.meta?.totalScore || 0,
-          currentLevel: game.meta?.currentLevel || 0,
-        }))
-        .sort((a, b) => b.score - a.score);
-      setLeaderboard(leaderboardData);
-    });
-
-    return () => unsubscribe();
-  }, [useFirebase]);
 
   // Persist game state to localStorage (fallback)
   const persistGameLocal = useCallback((state) => {
@@ -208,26 +190,14 @@ export const GameProvider = ({ children }) => {
       unsubscribeRef.current();
     }
 
-    // Subscribe to new game
+    // Subscribe to new game (with stale listener gating)
     unsubscribeRef.current = subscribeToGame(gameCode, (game) => {
       if (game) {
+        // Skip listener updates if a local write happened recently to prevent stale overwrites
+        if (Date.now() - lastLocalWriteRef.current < 500) {
+          return;
+        }
         setGameState(game);
-        // Update local leaderboard entry
-        setLeaderboard(current => {
-          const existing = current.find(t => t.teamName === game.meta?.teamName);
-          if (existing) {
-            return current.map(t =>
-              t.teamName === game.meta?.teamName
-                ? { ...t, score: game.meta?.totalScore || 0, currentLevel: game.meta?.currentLevel || 0 }
-                : t
-            ).sort((a, b) => b.score - a.score);
-          }
-          return [...current, {
-            teamName: game.meta?.teamName || 'Unknown',
-            score: game.meta?.totalScore || 0,
-            currentLevel: game.meta?.currentLevel || 0,
-          }].sort((a, b) => b.score - a.score);
-        });
       }
     });
   }, [useFirebase]);
@@ -344,7 +314,7 @@ export const GameProvider = ({ children }) => {
       // Check if team is locked (full)
       const playerCount = Object.keys(game.players || {}).length;
       if (playerCount >= MAX_PLAYERS_PER_TEAM || game.meta?.isLocked) {
-        return { success: false, error: 'This team is full (4 players maximum). Try joining a different team.' };
+        return { success: false, error: `This team is full (${MAX_PLAYERS_PER_TEAM} players maximum). Try joining a different team.` };
       }
 
       // Add crew member
@@ -400,6 +370,7 @@ export const GameProvider = ({ children }) => {
 
   // Update game state
   const updateGameState = useCallback((updates) => {
+    lastLocalWriteRef.current = Date.now();
     setGameState(prev => {
       if (!prev) return prev;
       const newState = { ...prev, ...updates };
@@ -410,6 +381,7 @@ export const GameProvider = ({ children }) => {
 
   // Update level state
   const updateLevelState = useCallback((levelKey, updates) => {
+    lastLocalWriteRef.current = Date.now();
     setGameState(prev => {
       if (!prev) return prev;
       const newState = {
@@ -421,7 +393,7 @@ export const GameProvider = ({ children }) => {
         // Extract level number from levelKey (e.g., 'level1' -> 1)
         const levelNum = parseInt(levelKey.replace('level', ''));
         if (!isNaN(levelNum)) {
-          updateLevelInDB(prev.gameCode, levelNum, updates).catch(console.error);
+          updateLevelInDB(prev.gameCode, levelNum, updates).catch(err => handleFirebaseError(err));
         }
       } else {
         persistGameLocal(newState);
@@ -433,6 +405,7 @@ export const GameProvider = ({ children }) => {
 
   // Complete a task in Level 2 (Pretrial Checklist)
   const completeTask = useCallback((taskId, points) => {
+    lastLocalWriteRef.current = Date.now();
     setGameState(prev => {
       if (!prev) return prev;
       const level2 = prev.level2 || { completedTasks: [], score: 0, currentTaskIndex: 0 };
@@ -457,6 +430,7 @@ export const GameProvider = ({ children }) => {
 
   // Apply penalty for Level 2
   const applyPenalty = useCallback((amount) => {
+    lastLocalWriteRef.current = Date.now();
     setGameState(prev => {
       if (!prev) return prev;
       const level2 = prev.level2 || { score: 0, penalties: 0 };
@@ -483,6 +457,7 @@ export const GameProvider = ({ children }) => {
       4: 'mission-commander',
     };
 
+    lastLocalWriteRef.current = Date.now();
     setGameState(prev => {
       if (!prev) return prev;
       const currentBadges = prev.badges || [];
@@ -505,30 +480,13 @@ export const GameProvider = ({ children }) => {
         badges: newBadges,
       };
       persistGame(newState);
-
-      // Update leaderboard
-      setLeaderboard(current => {
-        const existing = current.find(t => t.teamName === prev.meta.teamName);
-        if (existing) {
-          return current.map(t =>
-            t.teamName === prev.meta.teamName
-              ? { ...t, score: newState.meta.totalScore, currentLevel: newState.meta.currentLevel }
-              : t
-          ).sort((a, b) => b.score - a.score);
-        }
-        return [...current, {
-          teamName: prev.meta.teamName,
-          score: newState.meta.totalScore,
-          currentLevel: newState.meta.currentLevel,
-        }].sort((a, b) => b.score - a.score);
-      });
-
       return newState;
     });
   }, [persistGame]);
 
   // Navigate to a specific level
   const navigateToLevel = useCallback((levelNum, force = false) => {
+    lastLocalWriteRef.current = Date.now();
     setGameState(prev => {
       if (!prev) return prev;
       const highestUnlocked = prev.meta.highestUnlockedLevel || 1;
@@ -544,7 +502,7 @@ export const GameProvider = ({ children }) => {
       };
 
       if (useFirebase && prev.gameCode) {
-        updateMetaInDB(prev.gameCode, { currentLevel: levelNum }).catch(console.error);
+        updateMetaInDB(prev.gameCode, { currentLevel: levelNum }).catch(err => handleFirebaseError(err));
       } else {
         persistGameLocal(newState);
       }
@@ -557,6 +515,7 @@ export const GameProvider = ({ children }) => {
   const updatePlayerRole = useCallback((functionalRole) => {
     if (!playerId || !gameState) return;
 
+    lastLocalWriteRef.current = Date.now();
     setGameState(prev => {
       if (!prev || !prev.players[playerId]) return prev;
 
@@ -572,7 +531,7 @@ export const GameProvider = ({ children }) => {
       };
 
       if (useFirebase && prev.gameCode) {
-        addPlayerToDB(prev.gameCode, playerId, newState.players[playerId]).catch(console.error);
+        addPlayerToDB(prev.gameCode, playerId, newState.players[playerId]).catch(err => handleFirebaseError(err));
       } else {
         persistGameLocal(newState);
       }
@@ -588,6 +547,7 @@ export const GameProvider = ({ children }) => {
   const startGame = useCallback(() => {
     if (!gameState || role !== 'commander') return;
 
+    lastLocalWriteRef.current = Date.now();
     setGameState(prev => {
       if (!prev) return prev;
 
@@ -600,7 +560,7 @@ export const GameProvider = ({ children }) => {
       };
 
       if (useFirebase && prev.gameCode) {
-        updateMetaInDB(prev.gameCode, { gameStarted: true }).catch(console.error);
+        updateMetaInDB(prev.gameCode, { gameStarted: true }).catch(err => handleFirebaseError(err));
       } else {
         persistGameLocal(newState);
       }
@@ -611,9 +571,9 @@ export const GameProvider = ({ children }) => {
 
   // Get players grouped by functional role
   const getPlayersByRole = useCallback(() => {
-    if (!gameState?.players) return { productDev: [], packageDev: [], quality: [], unassigned: [] };
+    if (!gameState?.players) return { productDev: [], packageDev: [], quality: [], pim: [], unassigned: [] };
 
-    const grouped = { productDev: [], packageDev: [], quality: [], unassigned: [] };
+    const grouped = { productDev: [], packageDev: [], quality: [], pim: [], unassigned: [] };
     Object.entries(gameState.players).forEach(([id, player]) => {
       const roleKey = player.functionalRole || 'unassigned';
       if (grouped[roleKey]) {
@@ -633,6 +593,7 @@ export const GameProvider = ({ children }) => {
     const playerFunctionalRole = gameState?.players?.[playerId]?.functionalRole;
     if (!playerFunctionalRole) return;
 
+    lastLocalWriteRef.current = Date.now();
     setGameState(prev => {
       if (!prev) return prev;
 
@@ -661,7 +622,7 @@ export const GameProvider = ({ children }) => {
       if (useFirebase && prev.gameCode) {
         // Use path-based update to avoid overwriting other players' selections
         const path = `roleSelections/${playerFunctionalRole}/playerSelections/${playerId}`;
-        updateLevelPathInDB(prev.gameCode, 1, path, selectedCriteriaIds).catch(console.error);
+        updateLevelPathInDB(prev.gameCode, 1, path, selectedCriteriaIds).catch(err => handleFirebaseError(err));
       } else {
         persistGameLocal(newState);
       }
@@ -678,6 +639,7 @@ export const GameProvider = ({ children }) => {
     const playerFunctionalRole = gameState?.players?.[playerId]?.functionalRole;
     if (!playerFunctionalRole) return false;
 
+    lastLocalWriteRef.current = Date.now();
     setGameState(prev => {
       if (!prev) return prev;
 
@@ -704,12 +666,12 @@ export const GameProvider = ({ children }) => {
       };
 
       if (useFirebase && prev.gameCode) {
-        // Use path-based updates for confirmedSelections and confirmedBy
-        const basePath = `roleSelections/${playerFunctionalRole}`;
-        Promise.all([
-          updateLevelPathInDB(prev.gameCode, 1, `${basePath}/confirmedSelections`, selectedCriteriaData),
-          updateLevelPathInDB(prev.gameCode, 1, `${basePath}/confirmedBy`, newConfirmedBy),
-        ]).catch(console.error);
+        // Atomic multi-path update for confirmedSelections and confirmedBy
+        const basePath = `games/${prev.gameCode}/level1/roleSelections/${playerFunctionalRole}`;
+        multiPathUpdate({
+          [`${basePath}/confirmedSelections`]: selectedCriteriaData,
+          [`${basePath}/confirmedBy`]: newConfirmedBy,
+        }).catch(err => handleFirebaseError(err));
       } else {
         persistGameLocal(newState);
       }
@@ -724,6 +686,7 @@ export const GameProvider = ({ children }) => {
   const markReadyForPretrial = useCallback(() => {
     if (!playerId || !gameState) return;
 
+    lastLocalWriteRef.current = Date.now();
     setGameState(prev => {
       if (!prev) return prev;
 
@@ -741,7 +704,7 @@ export const GameProvider = ({ children }) => {
       };
 
       if (useFirebase && prev.gameCode) {
-        updateLevelInDB(prev.gameCode, 2, { readyPlayers: newReadyPlayers }).catch(console.error);
+        updateLevelInDB(prev.gameCode, 2, { readyPlayers: newReadyPlayers }).catch(err => handleFirebaseError(err));
       } else {
         persistGameLocal(newState);
       }
@@ -817,6 +780,7 @@ export const GameProvider = ({ children }) => {
 
     const { taskAssignments, taskCompletions } = assignTasksToPlayers(allTasks);
 
+    lastLocalWriteRef.current = Date.now();
     setGameState(prev => {
       if (!prev) return prev;
 
@@ -837,7 +801,7 @@ export const GameProvider = ({ children }) => {
           startedAt: Date.now(),
           taskAssignments,
           taskCompletions,
-        }).catch(console.error);
+        }).catch(err => handleFirebaseError(err));
       } else {
         persistGameLocal(newState);
       }
@@ -864,77 +828,6 @@ export const GameProvider = ({ children }) => {
     localStorage.removeItem('joybites_role');
   }, []);
 
-  // Admin: Pause/Resume all games
-  const toggleGlobalPause = useCallback(async (isPaused) => {
-    if (useFirebase) {
-      // Update all games in Firebase
-      const games = await getAllGamesFromDB();
-      for (const gameCode of Object.keys(games)) {
-        await updateMetaInDB(gameCode, { isPaused });
-      }
-    } else {
-      setAllGames(prev => {
-        const updated = {};
-        Object.keys(prev).forEach(code => {
-          updated[code] = {
-            ...prev[code],
-            meta: { ...prev[code].meta, isPaused },
-          };
-          localStorage.setItem(`joybites_game_${code}`, JSON.stringify(updated[code]));
-        });
-        return updated;
-      });
-    }
-
-    if (gameState) {
-      setGameState(prev => ({
-        ...prev,
-        meta: { ...prev.meta, isPaused },
-      }));
-    }
-  }, [useFirebase, gameState]);
-
-  // Admin: Reset team progress
-  const resetTeamProgress = useCallback(async (gameCode) => {
-    const game = allGames[gameCode];
-    if (game) {
-      const resetGame = createInitialGameState(gameCode, game.meta.teamName);
-      resetGame.players = game.players;
-
-      if (useFirebase) {
-        await updateGameInDB(gameCode, resetGame);
-      } else {
-        localStorage.setItem(`joybites_game_${gameCode}`, JSON.stringify(resetGame));
-        setAllGames(prev => ({ ...prev, [gameCode]: resetGame }));
-      }
-
-      if (gameState?.gameCode === gameCode) {
-        setGameState(resetGame);
-      }
-    }
-  }, [allGames, gameState, useFirebase]);
-
-  // Admin: Delete team
-  const deleteTeam = useCallback(async (gameCode) => {
-    if (useFirebase) {
-      await removeGameFromDB(gameCode);
-    } else {
-      localStorage.removeItem(`joybites_game_${gameCode}`);
-      setAllGames(prev => {
-        const updated = { ...prev };
-        delete updated[gameCode];
-        return updated;
-      });
-    }
-
-    if (gameState?.gameCode === gameCode) {
-      setGameState(null);
-      setRole(null);
-      localStorage.removeItem('joybites_current_game');
-      localStorage.removeItem('joybites_role');
-    }
-  }, [gameState, useFirebase]);
-
   // Get current player's functional role
   const functionalRole = gameState?.players?.[playerId]?.functionalRole || null;
 
@@ -943,8 +836,6 @@ export const GameProvider = ({ children }) => {
     playerId,
     role,
     functionalRole,
-    leaderboard,
-    allGames,
     useFirebase,
     isLoading,
     createGame,
@@ -963,9 +854,6 @@ export const GameProvider = ({ children }) => {
     confirmCriteriaSelection,
     markReadyForPretrial,
     startPretrialChecklist,
-    toggleGlobalPause,
-    resetTeamProgress,
-    deleteTeam,
     isInGame: !!gameState,
     isCommander: role === 'commander',
     isCrew: role === 'crew',

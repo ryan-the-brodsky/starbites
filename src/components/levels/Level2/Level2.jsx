@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { CheckCircle2, FlaskConical, Clock, AlertTriangle, X, ArrowRight, Package, Shuffle, Droplets, Flame, Scale, Snowflake, Box, ClipboardCheck, Target, Info, Plus, Minus } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { CheckCircle2, FlaskConical, Clock, AlertTriangle, X, ArrowRight, Package, Shuffle, Droplets, Flame, Scale, Snowflake, Box, ClipboardCheck, Target, Info, Plus, Minus, MessageCircle, TestTube } from 'lucide-react';
 import { useGame } from '../../../contexts/GameContext';
+import { operatorQuestions } from '../../../data/missionData';
 import LevelComplete from '../../common/LevelComplete';
 
 // Joy Bites Process Flow Steps with icons and available tests
@@ -11,7 +12,7 @@ const processSteps = [
   { id: 'gelling', name: 'Heating/Gelling', description: 'Thermal processing', icon: Flame, availableTests: ['temp', 'gel', 'viscosity'] },
   { id: 'portioning', name: 'Portioning', description: 'Size & weight', icon: Scale, availableTests: ['weight', 'dimensions', 'visual'] },
   { id: 'cooling', name: 'Cooling', description: 'Set & stabilize', icon: Snowflake, availableTests: ['temp', 'texture', 'moisture'] },
-  { id: 'packaging', name: 'Packaging', description: 'Seal & label', icon: Box, availableTests: ['seal', 'visual', 'weight'] },
+  { id: 'packaging', name: 'Packaging', description: 'Seal & label', icon: Box, availableTests: ['seal', 'visual', 'weight', 'dimensions'] },
   { id: 'release', name: 'QC Release', description: 'Final checks', icon: ClipboardCheck, availableTests: ['micro', 'sensory', 'visual'] },
 ];
 
@@ -38,12 +39,62 @@ const timePoints = [
 
 const MAX_SAMPLES = 300;
 
+// Alternate validation paths for criteria that can't be fully addressed in the main process flow
+// These appear as dotted-line branches off the main flow
+const alternateValidationPaths = [
+  {
+    id: 'operator-conversation',
+    name: 'Operator Conversation',
+    description: 'Ask questions to plant operators about the trial run',
+    icon: MessageCircle,
+    connectsAfter: 'gelling', // Appears as a branch after this step
+    availableTests: [], // Uses question-based UI instead of test/timepoint grid
+    isAlternate: true,
+    isConversational: true,
+  },
+  {
+    id: 'shelf-life-validation',
+    name: 'Shelf Life Validation',
+    description: 'Accelerated shelf life study',
+    icon: TestTube,
+    connectsAfter: 'release', // Appears as a branch after QC Release
+    availableTests: ['moisture', 'visual', 'sensory', 'micro'],
+    isAlternate: true,
+  },
+];
+
+// Steps where the 30-sample minimum for statistical validity applies
+// Only packaging and post-packaging steps require n>=30
+const STEPS_REQUIRING_MIN_SAMPLES = ['packaging', 'release'];
+// Alternate paths also require the minimum
+const ALTERNATE_STEPS_REQUIRING_MIN_SAMPLES = ['shelf-life-validation'];
+
 const Level2 = ({ onNavigateToLevel }) => {
   const { gameState, updateLevelState, completeLevel } = useGame();
   // New structure: samplingPlan[stepId][testId][timePointId] = quantity
-  const [samplingPlan, setSamplingPlan] = useState({});
+  // Synced via Firebase so all crew members see the same plan
+  const [samplingPlan, setSamplingPlan] = useState(() => {
+    // Initialize from Firebase/gameState if available
+    return gameState?.level3?.samplingPlan || {};
+  });
   const [selectedStep, setSelectedStep] = useState(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [quickAddQuantity, setQuickAddQuantity] = useState(10);
+
+  // Sync sampling plan FROM Firebase (other players' changes)
+  useEffect(() => {
+    const firebasePlan = gameState?.level3?.samplingPlan;
+    if (firebasePlan && JSON.stringify(firebasePlan) !== JSON.stringify(samplingPlan)) {
+      setSamplingPlan(firebasePlan);
+    }
+  }, [gameState?.level3?.samplingPlan]);
+
+  // Sync sampling plan TO Firebase whenever it changes locally
+  const syncPlanToFirebase = useCallback((newPlan) => {
+    updateLevelState('level3', {
+      samplingPlan: newPlan,
+    });
+  }, [updateLevelState]);
 
   // Get selected criteria from Level 1
   const selectedCriteria = gameState?.level1?.selectedCriteria || [];
@@ -54,11 +105,12 @@ const Level2 = ({ onNavigateToLevel }) => {
     selectedCriteria.forEach(criteria => {
       if (criteria?.requiredMeasurements) {
         criteria.requiredMeasurements.forEach(m => {
-          const key = `${m.step}-${m.test}`;
+          // For conversational criteria, key by step-question instead of step-test
+          const key = m.question ? `${m.step}-${m.question}` : `${m.step}-${m.test}`;
           if (!required.has(key)) {
             required.set(key, {
               step: m.step,
-              test: m.test,
+              test: m.test || m.question,
               criteria: [criteria.id],
               description: m.description
             });
@@ -79,12 +131,21 @@ const Level2 = ({ onNavigateToLevel }) => {
   // Count total samples used
   const getTotalSamples = () => {
     let total = 0;
-    Object.values(samplingPlan).forEach(stepPlan => {
-      Object.values(stepPlan).forEach(testPlan => {
-        Object.values(testPlan).forEach(quantity => {
-          total += quantity;
+    Object.entries(samplingPlan).forEach(([stepId, stepPlan]) => {
+      if (stepId === 'operator-conversation') {
+        // Conversational data: sum up question costs
+        Object.values(stepPlan).forEach(questionData => {
+          if (questionData?.asked) {
+            total += questionData.cost || 0;
+          }
         });
-      });
+      } else {
+        Object.values(stepPlan).forEach(testPlan => {
+          Object.values(testPlan).forEach(quantity => {
+            total += quantity;
+          });
+        });
+      }
     });
     return total;
   };
@@ -97,18 +158,36 @@ const Level2 = ({ onNavigateToLevel }) => {
     const covered = new Set();
 
     Object.entries(samplingPlan).forEach(([stepId, stepPlan]) => {
-      Object.entries(stepPlan).forEach(([testId, testPlan]) => {
-        // Check if this test has any samples at any timepoint
-        const hasAnySamples = Object.values(testPlan).some(qty => qty > 0);
-        if (hasAnySamples) {
-          const key = `${stepId}-${testId}`;
-          if (requiredMeasurements.has(key)) {
-            requiredMeasurements.get(key).criteria.forEach(criteriaId => {
-              covered.add(criteriaId);
-            });
+      if (stepId === 'operator-conversation') {
+        // Conversational data: check if asked questions cover criteria
+        Object.entries(stepPlan).forEach(([questionId, questionData]) => {
+          if (questionData?.asked) {
+            // Find which criteria this question covers
+            const question = operatorQuestions.find(q => q.id === questionId);
+            if (question) {
+              question.relatedCriteria.forEach(criteriaId => {
+                // Only mark covered if this criteria is actually selected
+                if (selectedCriteria.some(c => c.id === criteriaId)) {
+                  covered.add(criteriaId);
+                }
+              });
+            }
           }
-        }
-      });
+        });
+      } else {
+        Object.entries(stepPlan).forEach(([testId, testPlan]) => {
+          // Check if this test has any samples at any timepoint
+          const hasAnySamples = Object.values(testPlan).some(qty => qty > 0);
+          if (hasAnySamples) {
+            const key = `${stepId}-${testId}`;
+            if (requiredMeasurements.has(key)) {
+              requiredMeasurements.get(key).criteria.forEach(criteriaId => {
+                covered.add(criteriaId);
+              });
+            }
+          }
+        });
+      }
     });
 
     return {
@@ -128,7 +207,7 @@ const Level2 = ({ onNavigateToLevel }) => {
   // Update the quantity for a specific combination
   const updateSampleQuantity = (stepId, testId, timePointId, delta) => {
     setSamplingPlan(prev => {
-      const currentQty = getSampleQuantity(stepId, testId, timePointId);
+      const currentQty = prev[stepId]?.[testId]?.[timePointId] || 0;
       const newQty = Math.max(0, currentQty + delta);
 
       // Check if we can add more samples
@@ -156,6 +235,9 @@ const Level2 = ({ onNavigateToLevel }) => {
       } else {
         newPlan[stepId][testId][timePointId] = newQty;
       }
+
+      // Sync to Firebase so all crew members see the update
+      syncPlanToFirebase(newPlan);
 
       return newPlan;
     });
@@ -204,6 +286,9 @@ const Level2 = ({ onNavigateToLevel }) => {
         newPlan[stepId][testId][timePointId] = finalQty;
       }
 
+      // Sync to Firebase so all crew members see the update
+      syncPlanToFirebase(newPlan);
+
       return newPlan;
     });
   };
@@ -212,12 +297,66 @@ const Level2 = ({ onNavigateToLevel }) => {
     let total = 0;
     const stepPlan = samplingPlan[stepId];
     if (!stepPlan) return 0;
-    Object.values(stepPlan).forEach(testPlan => {
-      Object.values(testPlan).forEach(quantity => {
-        total += quantity;
+    if (stepId === 'operator-conversation') {
+      // Conversational data: sum up question costs
+      Object.values(stepPlan).forEach(questionData => {
+        if (questionData?.asked) {
+          total += questionData.cost || 0;
+        }
       });
-    });
+    } else {
+      Object.values(stepPlan).forEach(testPlan => {
+        Object.values(testPlan).forEach(quantity => {
+          total += quantity;
+        });
+      });
+    }
     return total;
+  };
+
+  // Handle asking an operator question (conversational sampling)
+  const handleAskQuestion = (question) => {
+    if (samplesUsed + question.sampleCost > MAX_SAMPLES) return;
+
+    setSamplingPlan(prev => {
+      const newPlan = { ...prev };
+      if (!newPlan['operator-conversation']) {
+        newPlan['operator-conversation'] = {};
+      }
+      newPlan['operator-conversation'][question.id] = {
+        asked: true,
+        cost: question.sampleCost,
+      };
+      syncPlanToFirebase(newPlan);
+      return newPlan;
+    });
+  };
+
+  // Handle removing an operator question
+  const handleRemoveQuestion = (questionId) => {
+    setSamplingPlan(prev => {
+      const newPlan = { ...prev };
+      if (newPlan['operator-conversation']) {
+        delete newPlan['operator-conversation'][questionId];
+        if (Object.keys(newPlan['operator-conversation']).length === 0) {
+          delete newPlan['operator-conversation'];
+        }
+      }
+      syncPlanToFirebase(newPlan);
+      return newPlan;
+    });
+  };
+
+  // Check if a question has been asked
+  const isQuestionAsked = (questionId) => {
+    return samplingPlan['operator-conversation']?.[questionId]?.asked === true;
+  };
+
+  // Get which selected criteria a question relates to
+  const getQuestionRelevance = (question) => {
+    return question.relatedCriteria.filter(criteriaId =>
+      selectedCriteria.some(c => c.id === criteriaId)
+    );
   };
 
   const canSubmit = () => {
@@ -250,7 +389,9 @@ const Level2 = ({ onNavigateToLevel }) => {
     );
   }
 
-  const selectedStepData = selectedStep ? processSteps.find(s => s.id === selectedStep) : null;
+  const selectedStepData = selectedStep
+    ? processSteps.find(s => s.id === selectedStep) || alternateValidationPaths.find(s => s.id === selectedStep)
+    : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 text-white p-4">
@@ -385,9 +526,43 @@ const Level2 = ({ onNavigateToLevel }) => {
                     {index < 3 && (
                       <ArrowRight className="w-5 h-5 text-slate-500 flex-shrink-0" />
                     )}
+                    {/* Alternate path: Operator Conversation branches off after Heating/Gelling */}
+                    {step.id === 'gelling' && (
+                      <div className="absolute" style={{ display: 'none' }}>{/* placeholder for layout */}</div>
+                    )}
                   </React.Fragment>
                 );
               })}
+            </div>
+
+            {/* Alternate Path: Operator Conversation (branches off Heating/Gelling) */}
+            <div className="flex justify-center">
+              <div className="flex items-center gap-2 ml-auto mr-16">
+                <div className="flex flex-col items-center">
+                  <div className="w-0.5 h-4 border-l-2 border-dashed border-purple-400/60" />
+                </div>
+                <button
+                  onClick={() => setSelectedStep('operator-conversation')}
+                  className={`relative flex flex-col items-center p-3 rounded-xl border-2 border-dashed transition-all hover:scale-105 min-w-[90px] ${
+                    selectedStep === 'operator-conversation'
+                      ? 'border-purple-400 bg-purple-900/40 shadow-lg shadow-purple-500/20'
+                      : getStepSampleCount('operator-conversation') > 0
+                        ? 'border-purple-500/60 bg-purple-900/20'
+                        : 'border-purple-500/30 bg-slate-800/30 hover:border-purple-400/50'
+                  }`}
+                >
+                  {getStepSampleCount('operator-conversation') > 0 && (
+                    <div className="absolute -top-2 -right-2 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center text-xs font-bold">
+                      {getStepSampleCount('operator-conversation')}
+                    </div>
+                  )}
+                  <div className="p-1.5 rounded-lg mb-1 bg-purple-500/20">
+                    <MessageCircle className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <span className="text-[10px] font-medium text-purple-300">Operator</span>
+                  <span className="text-[9px] text-purple-400/60">Conversation</span>
+                </button>
+              </div>
             </div>
 
             {/* Connector arrow down */}
@@ -447,27 +622,64 @@ const Level2 = ({ onNavigateToLevel }) => {
                 );
               })}
             </div>
+
+            {/* Alternate Path: Shelf Life Validation (branches off QC Release) */}
+            <div className="flex justify-center">
+              <div className="flex items-center gap-2 ml-16">
+                <div className="flex flex-col items-center">
+                  <div className="w-0.5 h-4 border-l-2 border-dashed border-purple-400/60" />
+                </div>
+                <button
+                  onClick={() => setSelectedStep('shelf-life-validation')}
+                  className={`relative flex flex-col items-center p-3 rounded-xl border-2 border-dashed transition-all hover:scale-105 min-w-[90px] ${
+                    selectedStep === 'shelf-life-validation'
+                      ? 'border-purple-400 bg-purple-900/40 shadow-lg shadow-purple-500/20'
+                      : getStepSampleCount('shelf-life-validation') > 0
+                        ? 'border-purple-500/60 bg-purple-900/20'
+                        : 'border-purple-500/30 bg-slate-800/30 hover:border-purple-400/50'
+                  }`}
+                >
+                  {getStepSampleCount('shelf-life-validation') > 0 && (
+                    <div className="absolute -top-2 -right-2 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center text-xs font-bold">
+                      {getStepSampleCount('shelf-life-validation')}
+                    </div>
+                  )}
+                  <div className="p-1.5 rounded-lg mb-1 bg-purple-500/20">
+                    <TestTube className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <span className="text-[10px] font-medium text-purple-300">Shelf Life</span>
+                  <span className="text-[9px] text-purple-400/60">Validation</span>
+                </button>
+              </div>
+            </div>
           </div>
 
-          <p className="text-xs text-slate-500 text-center mt-4">
+          <p className="text-xs text-slate-500 text-center mt-4 space-y-1">
             <span className="inline-flex items-center gap-1">
               <Target className="w-3 h-3 text-amber-400" />
               Steps with amber indicators have tests that support your success criteria
+            </span>
+            <br />
+            <span className="inline-flex items-center gap-1 text-purple-400/80">
+              <MessageCircle className="w-3 h-3" />
+              Dashed-border steps are alternate validation paths for criteria not covered in the main flow
             </span>
           </p>
         </div>
 
         {/* Configuration Panel */}
         {selectedStep && selectedStepData && (
-          <div className="bg-slate-800/50 rounded-xl p-6 border border-cyan-500 mb-6">
+          <div className={`bg-slate-800/50 rounded-xl p-6 border mb-6 ${
+            selectedStepData.isConversational ? 'border-purple-500' : 'border-cyan-500'
+          }`}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 {(() => {
                   const Icon = selectedStepData.icon;
-                  return <Icon className="w-6 h-6 text-cyan-400" />;
+                  return <Icon className={`w-6 h-6 ${selectedStepData.isConversational ? 'text-purple-400' : 'text-cyan-400'}`} />;
                 })()}
                 <div>
-                  <h3 className="text-lg font-semibold text-cyan-300">{selectedStepData.name}</h3>
+                  <h3 className={`text-lg font-semibold ${selectedStepData.isConversational ? 'text-purple-300' : 'text-cyan-300'}`}>{selectedStepData.name}</h3>
                   <p className="text-sm text-slate-400">{selectedStepData.description}</p>
                 </div>
               </div>
@@ -479,152 +691,261 @@ const Level2 = ({ onNavigateToLevel }) => {
               </button>
             </div>
 
-            {/* Sample Configuration Grid */}
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-600">
-                    <th className="text-left py-3 px-2">
-                      <div className="flex items-center gap-2">
-                        <FlaskConical className="w-4 h-4 text-cyan-400" />
-                        <span className="font-medium text-slate-300">Test</span>
-                      </div>
-                    </th>
-                    {timePoints.map(tp => (
-                      <th key={tp.id} className="text-center py-3 px-2 min-w-[120px]">
-                        <div className="flex flex-col items-center">
-                          <Clock className="w-4 h-4 text-purple-400 mb-1" />
-                          <span className="font-medium text-slate-300">{tp.name}</span>
-                          <span className="text-[10px] text-slate-500">{tp.description}</span>
-                        </div>
-                      </th>
-                    ))}
-                    <th className="text-center py-3 px-2 min-w-[80px]">
-                      <span className="font-medium text-slate-300">Total</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedStepData.availableTests.map(testId => {
-                    const test = testOptions[testId];
-                    const requiredForCriteria = isRequired(selectedStep, testId);
-                    const testTotal = timePoints.reduce((sum, tp) =>
-                      sum + getSampleQuantity(selectedStep, testId, tp.id), 0
-                    );
+            {/* Conversational UI for Operator Conversation */}
+            {selectedStepData.isConversational ? (
+              <div>
+                <p className="text-sm text-purple-300/80 mb-4">
+                  Choose which questions to ask the plant operators. Each question costs samples from your budget but provides insight into plant operations criteria.
+                </p>
+                <div className="space-y-3">
+                  {operatorQuestions.map(question => {
+                    const asked = isQuestionAsked(question.id);
+                    const relevantCriteria = getQuestionRelevance(question);
+                    const isRecommended = relevantCriteria.length > 0;
 
                     return (
-                      <tr key={testId} className={`border-b border-slate-700/50 ${
-                        requiredForCriteria ? 'bg-amber-900/10' : ''
-                      }`}>
-                        <td className="py-3 px-2">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-200">{test.name}</span>
-                            {requiredForCriteria && (
-                              <span className="text-xs bg-amber-500/30 text-amber-300 px-1.5 py-0.5 rounded">
-                                Recommended
+                      <div
+                        key={question.id}
+                        className={`rounded-lg p-4 border transition-all ${
+                          asked
+                            ? 'bg-purple-900/30 border-purple-500'
+                            : isRecommended
+                              ? 'bg-amber-900/10 border-amber-500/50'
+                              : 'bg-slate-800/50 border-slate-600'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-medium px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">
+                                {question.category}
                               </span>
+                              <span className="text-xs text-slate-500">
+                                Cost: {question.sampleCost} samples
+                              </span>
+                              {isRecommended && !asked && (
+                                <span className="text-xs bg-amber-500/30 text-amber-300 px-1.5 py-0.5 rounded">
+                                  Recommended
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-slate-200 mt-1">"{question.question}"</p>
+                            {isRecommended && (
+                              <p className="text-xs text-slate-500 mt-1">
+                                Supports: {relevantCriteria.map(id => {
+                                  const c = selectedCriteria.find(sc => sc.id === id);
+                                  return c?.category || id;
+                                }).join(', ')}
+                              </p>
                             )}
                           </div>
-                          <div className="text-xs text-slate-500">{test.description}</div>
-                        </td>
-                        {timePoints.map(tp => {
-                          const qty = getSampleQuantity(selectedStep, testId, tp.id);
-                          return (
-                            <td key={tp.id} className="py-3 px-2">
-                              <div className="flex items-center justify-center gap-1">
-                                <button
-                                  onClick={() => updateSampleQuantity(selectedStep, testId, tp.id, -1)}
-                                  disabled={qty === 0}
-                                  className="w-8 h-8 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                                >
-                                  <Minus className="w-4 h-4" />
-                                </button>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max={MAX_SAMPLES}
-                                  value={qty}
-                                  onChange={(e) => {
-                                    const val = parseInt(e.target.value) || 0;
-                                    setSampleQuantity(selectedStep, testId, tp.id, val);
-                                  }}
-                                  className="w-14 h-8 text-center bg-slate-900 border border-slate-600 rounded text-white focus:outline-none focus:border-cyan-400"
-                                />
-                                <button
-                                  onClick={() => updateSampleQuantity(selectedStep, testId, tp.id, 1)}
-                                  disabled={samplesRemaining === 0}
-                                  className="w-8 h-8 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                                >
-                                  <Plus className="w-4 h-4" />
-                                </button>
+                          <div className="flex-shrink-0">
+                            {asked ? (
+                              <button
+                                onClick={() => handleRemoveQuestion(question.id)}
+                                className="px-3 py-1.5 rounded text-sm bg-purple-600 hover:bg-purple-500 text-white transition-colors flex items-center gap-1"
+                              >
+                                <CheckCircle2 className="w-4 h-4" />
+                                Asked
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleAskQuestion(question)}
+                                disabled={samplesUsed + question.sampleCost > MAX_SAMPLES}
+                                className="px-3 py-1.5 rounded text-sm bg-slate-700 hover:bg-purple-600 text-slate-300 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
+                              >
+                                <MessageCircle className="w-4 h-4" />
+                                Ask
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-4 pt-4 border-t border-slate-700 flex items-center justify-between">
+                  <span className="text-sm text-slate-400">
+                    Questions asked: {Object.values(samplingPlan['operator-conversation'] || {}).filter(q => q?.asked).length} / {operatorQuestions.length}
+                  </span>
+                  <span className={`text-sm font-medium ${getStepSampleCount('operator-conversation') > 0 ? 'text-purple-400' : 'text-slate-500'}`}>
+                    Budget used: {getStepSampleCount('operator-conversation')} samples
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Sample Configuration Grid */}
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-600">
+                        <th className="text-left py-3 px-2">
+                          <div className="flex items-center gap-2">
+                            <FlaskConical className="w-4 h-4 text-cyan-400" />
+                            <span className="font-medium text-slate-300">Test</span>
+                          </div>
+                        </th>
+                        {timePoints.map(tp => (
+                          <th key={tp.id} className="text-center py-3 px-2 min-w-[120px]">
+                            <div className="flex flex-col items-center">
+                              <Clock className="w-4 h-4 text-purple-400 mb-1" />
+                              <span className="font-medium text-slate-300">{tp.name}</span>
+                              <span className="text-[10px] text-slate-500">{tp.description}</span>
+                            </div>
+                          </th>
+                        ))}
+                        <th className="text-center py-3 px-2 min-w-[80px]">
+                          <span className="font-medium text-slate-300">Total</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedStepData.availableTests.map(testId => {
+                        const test = testOptions[testId];
+                        const requiredForCriteria = isRequired(selectedStep, testId);
+                        const testTotal = timePoints.reduce((sum, tp) =>
+                          sum + getSampleQuantity(selectedStep, testId, tp.id), 0
+                        );
+
+                        return (
+                          <tr key={testId} className={`border-b border-slate-700/50 ${
+                            requiredForCriteria ? 'bg-amber-900/10' : ''
+                          }`}>
+                            <td className="py-3 px-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-slate-200">{test.name}</span>
+                                {requiredForCriteria && (
+                                  <span className="text-xs bg-amber-500/30 text-amber-300 px-1.5 py-0.5 rounded">
+                                    Recommended
+                                  </span>
+                                )}
                               </div>
+                              <div className="text-xs text-slate-500">{test.description}</div>
+                            </td>
+                            {timePoints.map(tp => {
+                              const qty = getSampleQuantity(selectedStep, testId, tp.id);
+                              return (
+                                <td key={tp.id} className="py-3 px-2">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <button
+                                      onClick={() => updateSampleQuantity(selectedStep, testId, tp.id, -1)}
+                                      disabled={qty === 0}
+                                      className="w-8 h-8 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                      <Minus className="w-4 h-4" />
+                                    </button>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max={MAX_SAMPLES}
+                                      value={qty}
+                                      onChange={(e) => {
+                                        const val = parseInt(e.target.value) || 0;
+                                        setSampleQuantity(selectedStep, testId, tp.id, val);
+                                      }}
+                                      className="w-14 h-8 text-center bg-slate-900 border border-slate-600 rounded text-white focus:outline-none focus:border-cyan-400"
+                                    />
+                                    <button
+                                      onClick={() => updateSampleQuantity(selectedStep, testId, tp.id, 1)}
+                                      disabled={samplesRemaining === 0}
+                                      className="w-8 h-8 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                      <Plus className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </td>
+                              );
+                            })}
+                            <td className="py-3 px-2 text-center">
+                              <span className={`font-bold ${testTotal > 0 ? 'text-cyan-400' : 'text-slate-500'}`}>
+                                {testTotal}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-slate-600">
+                        <td className="py-3 px-2 font-medium text-slate-300">Step Total</td>
+                        {timePoints.map(tp => {
+                          const tpTotal = selectedStepData.availableTests.reduce((sum, testId) =>
+                            sum + getSampleQuantity(selectedStep, testId, tp.id), 0
+                          );
+                          return (
+                            <td key={tp.id} className="py-3 px-2 text-center">
+                              <span className={`font-bold ${tpTotal > 0 ? 'text-purple-400' : 'text-slate-500'}`}>
+                                {tpTotal}
+                              </span>
                             </td>
                           );
                         })}
                         <td className="py-3 px-2 text-center">
-                          <span className={`font-bold ${testTotal > 0 ? 'text-cyan-400' : 'text-slate-500'}`}>
-                            {testTotal}
+                          <span className={`text-lg font-bold ${getStepSampleCount(selectedStep) > 0 ? 'text-green-400' : 'text-slate-500'}`}>
+                            {getStepSampleCount(selectedStep)}
                           </span>
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t border-slate-600">
-                    <td className="py-3 px-2 font-medium text-slate-300">Step Total</td>
-                    {timePoints.map(tp => {
-                      const tpTotal = selectedStepData.availableTests.reduce((sum, testId) =>
-                        sum + getSampleQuantity(selectedStep, testId, tp.id), 0
-                      );
+                    </tfoot>
+                  </table>
+                </div>
+
+                {/* Quick Add Buttons with configurable quantity */}
+                <div className="mt-4 pt-4 border-t border-slate-700">
+                  <div className="flex items-center gap-3 mb-2">
+                    <p className="text-xs text-slate-500">Quick add to all timepoints:</p>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-slate-500">Qty:</span>
+                      <button
+                        onClick={() => setQuickAddQuantity(prev => Math.max(1, prev - 5))}
+                        className="w-6 h-6 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 text-xs transition-colors"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        max={MAX_SAMPLES}
+                        value={quickAddQuantity}
+                        onChange={(e) => setQuickAddQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-12 h-6 text-center bg-slate-900 border border-slate-600 rounded text-white text-xs focus:outline-none focus:border-cyan-400"
+                      />
+                      <button
+                        onClick={() => setQuickAddQuantity(prev => Math.min(MAX_SAMPLES, prev + 5))}
+                        className="w-6 h-6 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 text-xs transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedStepData.availableTests.map(testId => {
+                      const test = testOptions[testId];
+                      const requiredForCriteria = isRequired(selectedStep, testId);
                       return (
-                        <td key={tp.id} className="py-3 px-2 text-center">
-                          <span className={`font-bold ${tpTotal > 0 ? 'text-purple-400' : 'text-slate-500'}`}>
-                            {tpTotal}
-                          </span>
-                        </td>
+                        <button
+                          key={testId}
+                          onClick={() => {
+                            timePoints.forEach(tp => {
+                              updateSampleQuantity(selectedStep, testId, tp.id, quickAddQuantity);
+                            });
+                          }}
+                          disabled={samplesRemaining < timePoints.length * quickAddQuantity}
+                          className={`px-3 py-1.5 rounded text-sm transition-colors ${
+                            requiredForCriteria
+                              ? 'bg-amber-600/50 hover:bg-amber-600 text-amber-100 border border-amber-500'
+                              : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                          } disabled:opacity-30 disabled:cursor-not-allowed`}
+                        >
+                          + {test.name} (all) x{quickAddQuantity}
+                        </button>
                       );
                     })}
-                    <td className="py-3 px-2 text-center">
-                      <span className={`text-lg font-bold ${getStepSampleCount(selectedStep) > 0 ? 'text-green-400' : 'text-slate-500'}`}>
-                        {getStepSampleCount(selectedStep)}
-                      </span>
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            {/* Quick Add Buttons */}
-            <div className="mt-4 pt-4 border-t border-slate-700">
-              <p className="text-xs text-slate-500 mb-2">Quick add to all timepoints:</p>
-              <div className="flex flex-wrap gap-2">
-                {selectedStepData.availableTests.map(testId => {
-                  const test = testOptions[testId];
-                  const requiredForCriteria = isRequired(selectedStep, testId);
-                  return (
-                    <button
-                      key={testId}
-                      onClick={() => {
-                        timePoints.forEach(tp => {
-                          if (getSampleQuantity(selectedStep, testId, tp.id) === 0) {
-                            updateSampleQuantity(selectedStep, testId, tp.id, 1);
-                          }
-                        });
-                      }}
-                      disabled={samplesRemaining < timePoints.length}
-                      className={`px-3 py-1.5 rounded text-sm transition-colors ${
-                        requiredForCriteria
-                          ? 'bg-amber-600/50 hover:bg-amber-600 text-amber-100 border border-amber-500'
-                          : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
-                      } disabled:opacity-30 disabled:cursor-not-allowed`}
-                    >
-                      + {test.name} (all)
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 

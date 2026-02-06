@@ -1,10 +1,35 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Trophy, ArrowLeft, Medal, Star, Rocket } from 'lucide-react';
 import { useGame } from '../contexts/GameContext';
+import { getAllGamesFromDB } from '../firebase';
 
 const Leaderboard = () => {
-  const { leaderboard, gameState } = useGame();
+  const { gameState } = useGame();
+  const [leaderboard, setLeaderboard] = useState([]);
+
+  // Poll for leaderboard data every 15 seconds
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      try {
+        const games = await getAllGamesFromDB();
+        const data = Object.values(games || {})
+          .map(game => ({
+            teamName: game.meta?.teamName || 'Unknown',
+            score: game.meta?.totalScore || 0,
+            currentLevel: game.meta?.currentLevel || 0,
+          }))
+          .sort((a, b) => b.score - a.score);
+        setLeaderboard(data);
+      } catch (err) {
+        console.error('Error fetching leaderboard:', err);
+      }
+    };
+
+    fetchLeaderboard();
+    const interval = setInterval(fetchLeaderboard, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const getRankIcon = (rank) => {
     switch (rank) {
@@ -123,7 +148,7 @@ const Leaderboard = () => {
                       {team.score.toLocaleString()}
                     </div>
                   ) : (
-                    <div className="text-lg text-slate-500">—</div>
+                    <div className="text-lg text-slate-500">&mdash;</div>
                   )}
                   <div className="text-xs text-slate-500">
                     {index < 3 ? 'points' : 'rank hidden'}

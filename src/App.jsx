@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { GameProvider } from './contexts/GameContext';
+import { AdminProvider } from './contexts/AdminContext';
+import { ToastProvider } from './contexts/ToastContext';
 import PasswordGate from './pages/PasswordGate';
 import Home from './pages/Home';
 import Game from './pages/Game';
@@ -30,8 +32,8 @@ const ProtectedRoute = ({ children }) => {
 function AppRoutes() {
   return (
     <Routes>
-      {/* Public route for admin (has its own password gate) */}
-      <Route path="/admin" element={<Admin />} />
+      {/* Admin route - obscured URL acts as access control */}
+      <Route path="/admin/missioncontrol" element={<AdminProvider><Admin /></AdminProvider>} />
 
       {/* Protected routes */}
       <Route
@@ -68,11 +70,13 @@ function AppRoutes() {
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <GameProvider>
-          <AppRoutes />
-        </GameProvider>
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <GameProvider>
+            <AppRoutes />
+          </GameProvider>
+        </AuthProvider>
+      </ToastProvider>
     </BrowserRouter>
   );
 }

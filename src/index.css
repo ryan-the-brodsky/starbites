@@ -10,3 +10,30 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* Toast slide-up animation */
+@keyframes slide-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* Projector mode global overrides */
+body.projector-mode {
+  font-size: 1.25rem;
+}
+body.projector-mode .projector-text-xl {
+  font-size: 2rem;
+}
+body.projector-mode .projector-text-3xl {
+  font-size: 3rem;
+}

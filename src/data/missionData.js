@@ -112,6 +112,8 @@ export const productDevCriteria = [
     sourceRef: 'FM1 + UX Delight: Familiar flavors',
     category: 'Emotional Comfort',
     role: 'productDev',
+    importanceWeight: 80,
+    measurementType: 'instrumental',
     requiredMeasurements: [
       { step: 'release', test: 'sensory', description: 'Familiar flavor sensory evaluation' },
       { step: 'mixing', test: 'temp', description: 'Processing temperature control' }
@@ -125,6 +127,8 @@ export const productDevCriteria = [
     sourceRef: 'FM2: Texture inconsistency in microgravity',
     category: 'Microgravity Safety',
     role: 'productDev',
+    importanceWeight: 90,
+    measurementType: 'instrumental',
     requiredMeasurements: [
       { step: 'cooling', test: 'texture', description: 'Cohesion/particle release test' },
       { step: 'gelling', test: 'gel', description: 'Gel strength measurement' }
@@ -138,6 +142,8 @@ export const productDevCriteria = [
     sourceRef: 'FM3 + UX Delight: Visual appeal',
     category: 'Sensory Delight',
     role: 'productDev',
+    importanceWeight: 40,
+    measurementType: 'instrumental',
     requiredMeasurements: [
       { step: 'release', test: 'visual', description: 'Color vibrancy assessment' },
       { step: 'cooling', test: 'temp', description: 'Post-cooling temperature stability' }
@@ -151,6 +157,8 @@ export const productDevCriteria = [
     sourceRef: 'FM5 + UX Delight: Sensory variety',
     category: 'Sensory Delight',
     role: 'productDev',
+    importanceWeight: 50,
+    measurementType: 'instrumental',
     requiredMeasurements: [
       { step: 'cooling', test: 'texture', description: 'Texture contrast analysis' },
       { step: 'release', test: 'sensory', description: 'Sensory panel texture score' }
@@ -164,6 +172,8 @@ export const productDevCriteria = [
     sourceRef: 'Process stability for extended missions',
     category: 'Process Control',
     role: 'productDev',
+    importanceWeight: 70,
+    measurementType: 'instrumental',
     requiredMeasurements: [
       { step: 'blending', test: 'moisture', description: 'Post-blending moisture' },
       { step: 'cooling', test: 'moisture', description: 'Post-cooling moisture' }
@@ -181,6 +191,8 @@ export const packageDevCriteria = [
     sourceRef: 'FM4 + UX Functional: Single-hand opening',
     category: 'Microgravity Usability',
     role: 'packageDev',
+    importanceWeight: 75,
+    measurementType: 'instrumental',
     requiredMeasurements: [
       { step: 'packaging', test: 'seal', description: 'Opening force measurement' }
     ],
@@ -193,6 +205,8 @@ export const packageDevCriteria = [
     sourceRef: 'FM4: Microgravity containment',
     category: 'Microgravity Safety',
     role: 'packageDev',
+    importanceWeight: 95,
+    measurementType: 'instrumental',
     requiredMeasurements: [
       { step: 'packaging', test: 'seal', description: 'Containment integrity test' },
       { step: 'packaging', test: 'visual', description: 'Product retention inspection' }
@@ -206,6 +220,8 @@ export const packageDevCriteria = [
     sourceRef: 'FM3: Color degradation prevention',
     category: 'Product Protection',
     role: 'packageDev',
+    importanceWeight: 45,
+    measurementType: 'instrumental',
     requiredMeasurements: [
       { step: 'packaging', test: 'visual', description: 'Light barrier testing' }
     ],
@@ -218,6 +234,8 @@ export const packageDevCriteria = [
     sourceRef: 'UX Functional: Compact storage',
     category: 'Space Compatibility',
     role: 'packageDev',
+    importanceWeight: 60,
+    measurementType: 'instrumental',
     requiredMeasurements: [
       { step: 'packaging', test: 'dimensions', description: 'Package dimension check' }
     ],
@@ -230,6 +248,8 @@ export const packageDevCriteria = [
     sourceRef: 'UX Usability: Long shelf life',
     category: 'Quality',
     role: 'packageDev',
+    importanceWeight: 85,
+    measurementType: 'instrumental',
     requiredMeasurements: [
       { step: 'packaging', test: 'seal', description: 'Seal integrity test' }
     ],
@@ -246,6 +266,8 @@ export const qualityCriteria = [
     sourceRef: 'UX Foundation: Safety & Trust',
     category: 'Compliance',
     role: 'quality',
+    importanceWeight: 90,
+    measurementType: 'instrumental',
     requiredMeasurements: [
       { step: 'receiving', test: 'visual', description: 'Incoming material inspection' },
       { step: 'release', test: 'micro', description: 'Microbial testing' }
@@ -259,6 +281,8 @@ export const qualityCriteria = [
     sourceRef: 'FM2: Portioning consistency',
     category: 'Process Control',
     role: 'quality',
+    importanceWeight: 65,
+    measurementType: 'instrumental',
     requiredMeasurements: [
       { step: 'portioning', test: 'weight', description: 'Unit weight measurement' }
     ],
@@ -271,6 +295,8 @@ export const qualityCriteria = [
     sourceRef: 'UX Foundation: Safe for space consumption',
     category: 'Safety',
     role: 'quality',
+    importanceWeight: 95,
+    measurementType: 'instrumental',
     requiredMeasurements: [
       { step: 'release', test: 'micro', description: 'Microbial count analysis' }
     ],
@@ -283,6 +309,8 @@ export const qualityCriteria = [
     sourceRef: 'UX Delight: Spark joy',
     category: 'Emotional Impact',
     role: 'quality',
+    importanceWeight: 35,
+    measurementType: 'instrumental',
     requiredMeasurements: [
       { step: 'release', test: 'sensory', description: 'Joy/emotional response panel' }
     ],
@@ -295,6 +323,8 @@ export const qualityCriteria = [
     sourceRef: 'Scale trial requirement',
     category: 'Output',
     role: 'quality',
+    importanceWeight: 55,
+    measurementType: 'instrumental',
     requiredMeasurements: [
       { step: 'portioning', test: 'weight', description: 'Unit count and weight' },
       { step: 'packaging', test: 'visual', description: 'Final product inspection' }
@@ -304,6 +334,7 @@ export const qualityCriteria = [
 ];
 
 // PIM (Plant Industrialization Manager) criteria - focus on plant operations
+// PIM criteria use conversational measurement - talking to operators instead of instruments
 export const pimCriteria = [
   {
     id: 'pim1',
@@ -312,9 +343,11 @@ export const pimCriteria = [
     sourceRef: 'Plant runnability requirement',
     category: 'Line Efficiency',
     role: 'pim',
+    importanceWeight: 70,
+    measurementType: 'conversational',
     requiredMeasurements: [
-      { step: 'mixing', test: 'temp', description: 'Equipment uptime monitoring' },
-      { step: 'packaging', test: 'visual', description: 'Line speed verification' }
+      { step: 'operator-conversation', question: 'line_efficiency', description: 'Ask about line efficiency during trial' },
+      { step: 'operator-conversation', question: 'downtime_events', description: 'Ask about unplanned downtime events' }
     ],
     targetSpec: { metric: 'line_efficiency', min: 85, max: 100, unit: 'percent' }
   },
@@ -325,9 +358,10 @@ export const pimCriteria = [
     sourceRef: 'Operator safety requirement',
     category: 'Safety',
     role: 'pim',
+    importanceWeight: 85,
+    measurementType: 'conversational',
     requiredMeasurements: [
-      { step: 'receiving', test: 'visual', description: 'Document verification' },
-      { step: 'mixing', test: 'temp', description: 'Process parameter logging' }
+      { step: 'operator-conversation', question: 'safety_incidents', description: 'Ask about safety incidents and batch sheet clarity' }
     ],
     targetSpec: { metric: 'safety_incidents', min: 0, max: 0, unit: 'count' }
   },
@@ -338,9 +372,11 @@ export const pimCriteria = [
     sourceRef: 'Equipment validation',
     category: 'Equipment',
     role: 'pim',
+    importanceWeight: 60,
+    measurementType: 'conversational',
     requiredMeasurements: [
-      { step: 'mixing', test: 'viscosity', description: 'Mixer compatibility check' },
-      { step: 'gelling', test: 'temp', description: 'Temperature system validation' }
+      { step: 'operator-conversation', question: 'changeover_time', description: 'Ask about changeover time and equipment issues' },
+      { step: 'operator-conversation', question: 'cleaning_difficulty', description: 'Ask about changeover cleanup process' }
     ],
     targetSpec: { metric: 'changeover_time', min: 0, max: 30, unit: 'minutes' }
   },
@@ -351,8 +387,10 @@ export const pimCriteria = [
     sourceRef: 'Operator readiness',
     category: 'Training',
     role: 'pim',
+    importanceWeight: 75,
+    measurementType: 'conversational',
     requiredMeasurements: [
-      { step: 'receiving', test: 'visual', description: 'Training documentation review' }
+      { step: 'operator-conversation', question: 'operator_readiness', description: 'Ask about operator preparedness and training' }
     ],
     targetSpec: { metric: 'training_complete', min: 100, max: 100, unit: 'percent' }
   },
@@ -363,9 +401,10 @@ export const pimCriteria = [
     sourceRef: 'Scale-up documentation',
     category: 'Documentation',
     role: 'pim',
+    importanceWeight: 50,
+    measurementType: 'conversational',
     requiredMeasurements: [
-      { step: 'gelling', test: 'gel', description: 'Process parameter documentation' },
-      { step: 'cooling', test: 'temp', description: 'Cooling system parameters' }
+      { step: 'operator-conversation', question: 'scale_up_params', description: 'Ask about equipment parameter documentation' }
     ],
     targetSpec: { metric: 'parameter_variance', min: 0, max: 5, unit: 'percent' }
   }
@@ -400,6 +439,167 @@ export const MAX_CRITERIA_PER_ROLE = 3;
 
 // Penalty for missing roles (per missing role)
 export const MISSING_ROLE_PENALTY = 500;
+
+// Operator Questions - questions PIM players can ask during operator conversation step
+export const operatorQuestions = [
+  {
+    id: 'line_efficiency',
+    question: 'What was the line efficiency during the trial run? How many units per hour were you hitting?',
+    relatedCriteria: ['pim1'],
+    sampleCost: 5,
+    category: 'Line Efficiency'
+  },
+  {
+    id: 'downtime_events',
+    question: 'Were there any unplanned downtime events? What caused them and how long did they last?',
+    relatedCriteria: ['pim1', 'pim3'],
+    sampleCost: 5,
+    category: 'Line Efficiency'
+  },
+  {
+    id: 'safety_incidents',
+    question: 'Were there any safety incidents during the run? Was the batch sheet clear and easy to follow?',
+    relatedCriteria: ['pim2'],
+    sampleCost: 5,
+    category: 'Safety'
+  },
+  {
+    id: 'changeover_time',
+    question: 'How long did the changeover take? Were there any equipment compatibility issues?',
+    relatedCriteria: ['pim3'],
+    sampleCost: 5,
+    category: 'Equipment'
+  },
+  {
+    id: 'cleaning_difficulty',
+    question: 'How difficult was the changeover cleanup process? Any residue or contamination concerns?',
+    relatedCriteria: ['pim3'],
+    sampleCost: 5,
+    category: 'Equipment'
+  },
+  {
+    id: 'operator_readiness',
+    question: 'Did operators feel prepared for this trial? Was the training adequate for the new product?',
+    relatedCriteria: ['pim4'],
+    sampleCost: 5,
+    category: 'Training'
+  },
+  {
+    id: 'scale_up_params',
+    question: 'Were all equipment parameters documented during the run? Any variance from the lab specs?',
+    relatedCriteria: ['pim5'],
+    sampleCost: 5,
+    category: 'Documentation'
+  },
+  {
+    id: 'overall_impression',
+    question: 'Overall, how did the trial run go from the plant floor perspective? Anything surprising?',
+    relatedCriteria: ['pim1', 'pim2', 'pim3', 'pim4', 'pim5'],
+    sampleCost: 10,
+    category: 'General'
+  }
+];
+
+// Operator Quote Bank - quotes shown in Level 4 results for conversational criteria
+// Each question has met (positive) and notMet (negative) quotes
+export const operatorQuoteBank = {
+  line_efficiency: {
+    met: [
+      { speaker: 'Maria, Line Lead', quote: 'We hit 91% efficiency on the main line. Really smooth run once we got past the first hour of warmup.' },
+      { speaker: 'James, Shift Supervisor', quote: 'Line was running at 88% overall. The gelling station kept pace nicely and we had minimal stoppages.' },
+      { speaker: 'Priya, Operations Tech', quote: 'Efficiency was solid at 87%. The cooling tunnel was the bottleneck but we managed around it.' }
+    ],
+    notMet: [
+      { speaker: 'Maria, Line Lead', quote: 'We only hit about 72% efficiency. The mixer kept jamming with the new formulation viscosity.' },
+      { speaker: 'James, Shift Supervisor', quote: 'Rough day - 68% efficiency. We had three unplanned stops for the portioning heads clogging.' },
+      { speaker: 'Priya, Operations Tech', quote: 'Line efficiency was around 74%. The product was too sticky and kept fouling the conveyor.' }
+    ]
+  },
+  downtime_events: {
+    met: [
+      { speaker: 'Carlos, Maintenance Tech', quote: 'Just one minor stop for 8 minutes to clear a sensor alarm. Nothing that impacted the batch quality.' },
+      { speaker: 'Maria, Line Lead', quote: 'No significant downtime. We had a brief pause to adjust the fill weight but that was planned.' },
+      { speaker: 'Tony, Equipment Engineer', quote: 'Clean run. The preventive maintenance we did last week really paid off - zero breakdowns.' }
+    ],
+    notMet: [
+      { speaker: 'Carlos, Maintenance Tech', quote: 'We lost 45 minutes when the gelling pump seized. Had to pull it apart and clean the impeller.' },
+      { speaker: 'Maria, Line Lead', quote: 'Three separate stops totaling over an hour. The cooling system kept tripping on high temperature.' },
+      { speaker: 'Tony, Equipment Engineer', quote: 'Major downtime event - the mixer shaft coupling failed. Took 90 minutes to get a replacement.' }
+    ]
+  },
+  safety_incidents: {
+    met: [
+      { speaker: 'Aisha, Safety Coordinator', quote: 'Zero incidents reported. The batch sheet was well-organized and operators followed every step correctly.' },
+      { speaker: 'James, Shift Supervisor', quote: 'No safety concerns at all. The new floor documents translated well from the batch record.' },
+      { speaker: 'Lin, QA Tech', quote: 'Everything was clean from a safety standpoint. Allergen controls were tight and well-documented.' }
+    ],
+    notMet: [
+      { speaker: 'Aisha, Safety Coordinator', quote: 'We had a near-miss at the mixing station. The batch sheet had confusing units - Celsius was written where Fahrenheit should have been.' },
+      { speaker: 'James, Shift Supervisor', quote: 'One operator slipped on spilled gel near the gelling station. The floor document did not call out the slip hazard.' },
+      { speaker: 'Lin, QA Tech', quote: 'The allergen changeover step was missing from the translated batch sheet. We caught it but it could have been serious.' }
+    ]
+  },
+  changeover_time: {
+    met: [
+      { speaker: 'Tony, Equipment Engineer', quote: 'Changeover took 22 minutes. All the fittings were compatible and the CIP cycle ran without issues.' },
+      { speaker: 'Carlos, Maintenance Tech', quote: 'We got it done in 25 minutes. The new product runs on the same tooling as the previous SKU.' },
+      { speaker: 'Maria, Line Lead', quote: 'Quick changeover - about 18 minutes. The team knew exactly what to swap out and everything fit.' }
+    ],
+    notMet: [
+      { speaker: 'Tony, Equipment Engineer', quote: 'Changeover was 55 minutes. The mixing blade from the previous product does not fit the new recipe needs.' },
+      { speaker: 'Carlos, Maintenance Tech', quote: 'Took us 42 minutes. The gelling station nozzles had to be swapped and we did not have the right gaskets ready.' },
+      { speaker: 'Maria, Line Lead', quote: 'Over 50 minutes for changeover. The CIP validation took three cycles before we passed.' }
+    ]
+  },
+  cleaning_difficulty: {
+    met: [
+      { speaker: 'Sarah, Sanitation Lead', quote: 'Cleanup was straightforward. The gel formula releases easily from stainless surfaces - single CIP pass was enough.' },
+      { speaker: 'Carlos, Maintenance Tech', quote: 'No issues with cleaning. Residue came off easily and we verified with ATP swabs on first attempt.' },
+      { speaker: 'Tony, Equipment Engineer', quote: 'The formulation is much easier to clean than our chocolate line. No baked-on residue at all.' }
+    ],
+    notMet: [
+      { speaker: 'Sarah, Sanitation Lead', quote: 'The gel residue is really stubborn in the heat exchanger plates. Took three CIP cycles and manual scrubbing.' },
+      { speaker: 'Carlos, Maintenance Tech', quote: 'Cleanup was a nightmare. The cooling tunnel had residue baked onto the conveyor belt that would not come off.' },
+      { speaker: 'Tony, Equipment Engineer', quote: 'We failed ATP verification twice. The portioning nozzles need to be disassembled for proper cleaning.' }
+    ]
+  },
+  operator_readiness: {
+    met: [
+      { speaker: 'James, Shift Supervisor', quote: 'The team felt well-prepared. Training covered all the critical steps and the operators were confident on the new controls.' },
+      { speaker: 'Maria, Line Lead', quote: 'Everyone was trained up. We did a dry run last week and it really helped the team know what to expect.' },
+      { speaker: 'Aisha, Safety Coordinator', quote: 'All sign-offs were completed before the trial. Operators could explain the critical control points without looking at the documents.' }
+    ],
+    notMet: [
+      { speaker: 'James, Shift Supervisor', quote: 'Honestly, the training was rushed. Two operators were not sure how to set the gelling temperature parameters.' },
+      { speaker: 'Maria, Line Lead', quote: 'We had three new temps on the line who had never run this type of product. They struggled with the cooling controls.' },
+      { speaker: 'Aisha, Safety Coordinator', quote: 'Only half the team completed the training sign-off. The others were pulled from a different line at the last minute.' }
+    ]
+  },
+  scale_up_params: {
+    met: [
+      { speaker: 'Lin, QA Tech', quote: 'All parameters were documented in real-time. Mixing speed, temperatures, hold times - everything matched the lab specs within 3% variance.' },
+      { speaker: 'Tony, Equipment Engineer', quote: 'We logged every parameter. The scale-up factor from lab to plant was consistent and well within the 5% tolerance.' },
+      { speaker: 'Priya, Operations Tech', quote: 'Documentation was thorough. I recorded all the equipment settings and they tracked closely to what R&D specified.' }
+    ],
+    notMet: [
+      { speaker: 'Lin, QA Tech', quote: 'We had to adjust the mixing speed significantly - about 12% higher than lab spec to get the right consistency at scale.' },
+      { speaker: 'Tony, Equipment Engineer', quote: 'The gelling temperature needed to be 8 degrees higher than specified. That is a big variance from the lab parameters.' },
+      { speaker: 'Priya, Operations Tech', quote: 'Several parameters drifted during the run and were not caught until batch review. Documentation gaps on the cooling profile.' }
+    ]
+  },
+  overall_impression: {
+    met: [
+      { speaker: 'James, Shift Supervisor', quote: 'Good trial overall. The product looks great, the line ran well, and the team is confident we can run this at full scale.' },
+      { speaker: 'Maria, Line Lead', quote: 'One of the smoother trial runs we have had. A few minor hiccups but nothing that would hold up production.' },
+      { speaker: 'Tony, Equipment Engineer', quote: 'From an equipment standpoint, this product is a good fit for our line. I would be comfortable running a full production batch.' }
+    ],
+    notMet: [
+      { speaker: 'James, Shift Supervisor', quote: 'I have concerns. The line was not ready for this product and we need to solve the equipment issues before scaling up.' },
+      { speaker: 'Maria, Line Lead', quote: 'Challenging trial. Between the downtime and the training gaps, I would want another trial run before full production.' },
+      { speaker: 'Tony, Equipment Engineer', quote: 'We need modifications to the gelling station and cooling tunnel before this is production-ready. Too many workarounds today.' }
+    ]
+  }
+};
 
 // Badge for Level 1
 export const level1Badge = {

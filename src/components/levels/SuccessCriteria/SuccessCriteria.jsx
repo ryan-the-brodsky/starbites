@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Target, FileText, CheckCircle2, AlertTriangle, Triangle, ChevronDown, ChevronUp, FlaskConical, Info, Users, Package, ShieldCheck, AlertOctagon, Clock, Factory } from 'lucide-react';
 import { useGame } from '../../../contexts/GameContext';
 import {
@@ -86,8 +86,8 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
   // Get each teammate's current selections
   const teammateSelections = myRoleSelections.playerSelections || {};
 
-  // Check if all players in role have identical selections
-  const checkConsensus = () => {
+  // Check if all players in role have identical selections (memoized to prevent re-render loops)
+  const hasConsensus = useMemo(() => {
     const playersInRole = playersByRole[functionalRole] || [];
     if (playersInRole.length <= 1) return true; // Only one player, no consensus needed
 
@@ -102,9 +102,7 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
 
     const firstSelection = allSelections[0];
     return allSelections.every(s => s === firstSelection);
-  };
-
-  const hasConsensus = checkConsensus();
+  }, [playersByRole, functionalRole, teammateSelections]);
 
   // Check consensus status for all roles
   const getRoleConsensusStatus = (role) => {
@@ -135,22 +133,32 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
     .filter(role => (playersByRole[role]?.length || 0) > 0)
     .every(role => getRoleConsensusStatus(role).hasConsensus);
 
+  // Refs to prevent re-render loops
+  const initializedFromState = useRef(false);
+  const lastSyncedSelections = useRef(null);
+
   // Initialize selected criteria from game state (player's individual selections)
   useEffect(() => {
+    if (initializedFromState.current) return;
     const mySelections = teammateSelections[playerId];
-    if (mySelections?.length > 0 && selectedCriteria.length === 0) {
+    if (mySelections?.length > 0) {
       setSelectedCriteria(mySelections);
+      lastSyncedSelections.current = [...mySelections].sort().join(',');
+      initializedFromState.current = true;
     }
     if (playerHasConfirmed) {
       setHasConfirmed(true);
     }
-  }, [teammateSelections, playerId, playerHasConfirmed, selectedCriteria.length]);
+  }, [teammateSelections, playerId, playerHasConfirmed]);
 
-  // Sync local selections to game state in real-time
+  // Sync local selections to game state in real-time (with dedup to prevent loops)
   useEffect(() => {
-    if (selectedCriteria.length > 0 && !hasConfirmed) {
-      updatePlayerCriteriaSelections(selectedCriteria);
-    }
+    if (hasConfirmed) return;
+    if (selectedCriteria.length === 0) return;
+    const sortedKey = [...selectedCriteria].sort().join(',');
+    if (sortedKey === lastSyncedSelections.current) return;
+    lastSyncedSelections.current = sortedKey;
+    updatePlayerCriteriaSelections(selectedCriteria);
   }, [selectedCriteria, hasConfirmed, updatePlayerCriteriaSelections]);
 
   const toggleCriteria = (criteriaId) => {
@@ -224,8 +232,8 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
       }
     });
 
-    // Calculate score (base points minus penalties)
-    const baseScore = allSelectedCriteria.length * 50;
+    // Calculate score using hidden importance weights (base points minus penalties)
+    const baseScore = allSelectedCriteria.reduce((sum, c) => sum + (c.importanceWeight || 50), 0);
     const finalScore = Math.max(0, baseScore - missingRolePenalty);
 
     updateLevelState('level1', {
@@ -240,12 +248,12 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
     setShowLevelComplete(false);
   };
 
-  // Calculate level 1 score for display
+  // Calculate level 1 score for display (uses hidden importance weights)
   const calculateLevel1Score = () => {
     let total = 0;
     Object.keys(ROLE_INFO).forEach(role => {
       const status = getRoleConsensusStatus(role);
-      total += status.criteria.length * 50;
+      total += status.criteria.reduce((sum, c) => sum + (c.importanceWeight || 50), 0);
     });
     return Math.max(0, total - missingRolePenalty);
   };

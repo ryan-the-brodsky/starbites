@@ -32,14 +32,30 @@ const activeDotClasses = {
   4: 'bg-amber-400',
 };
 
-const LevelNavigator = () => {
-  const { gameState, navigateToLevel } = useGame();
+const LevelNavigator = ({ onNavigateToLevel }) => {
+  const { gameState } = useGame();
   const { isTestMode, toggleTestMode } = useAuth();
-  const currentLevel = gameState?.meta?.currentLevel || 1;
   const highestUnlocked = gameState?.meta?.highestUnlockedLevel || 1;
+
+  // Read the current view level from localStorage to highlight the active button
+  const gameCode = gameState?.gameCode;
+  const currentViewLevel = (() => {
+    try {
+      const saved = localStorage.getItem(`joybites_view_level_${gameCode}`);
+      return saved ? parseInt(saved, 10) : (gameState?.meta?.currentLevel || 1);
+    } catch {
+      return gameState?.meta?.currentLevel || 1;
+    }
+  })();
 
   const isCompleted = (levelNum) => {
     return gameState?.[`level${levelNum}`]?.completedAt != null;
+  };
+
+  const handleNavigate = (levelNum) => {
+    if (onNavigateToLevel) {
+      onNavigateToLevel(levelNum);
+    }
   };
 
   return (
@@ -48,7 +64,7 @@ const LevelNavigator = () => {
         <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1">
           {/* Back to Level Select Button */}
           <button
-            onClick={() => navigateToLevel(0)}
+            onClick={() => handleNavigate(0)}
             className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-slate-800/50 border-slate-600 text-slate-400 cursor-pointer hover:border-slate-500 hover:bg-slate-700/50 transition-all flex-shrink-0"
           >
             <Home className="w-4 h-4" />
@@ -58,7 +74,7 @@ const LevelNavigator = () => {
           {/* Level Buttons */}
           <div className="flex items-center gap-2">
             {levelInfo.map((level) => {
-              const isActive = currentLevel === level.num;
+              const isActive = currentViewLevel === level.num;
               const isUnlocked = isTestMode || level.num <= highestUnlocked; // Test mode unlocks all levels
               const completed = isCompleted(level.num);
               const Icon = level.icon;
@@ -77,7 +93,7 @@ const LevelNavigator = () => {
               return (
                 <button
                   key={level.num}
-                  onClick={() => isUnlocked && navigateToLevel(level.num, isTestMode)}
+                  onClick={() => isUnlocked && handleNavigate(level.num)}
                   disabled={!isUnlocked}
                   className={buttonClasses}
                 >
@@ -93,6 +109,22 @@ const LevelNavigator = () => {
                   <div className="flex flex-col items-start">
                     <span className="text-xs opacity-60">Level {level.num}</span>
                     <span className="text-sm font-medium whitespace-nowrap">{level.shortName}</span>
+                    {/* Show confirmation fraction for Level 1 */}
+                    {level.num === 1 && !completed && (() => {
+                      const roleSelections = gameState?.level1?.roleSelections || {};
+                      const totalPlayers = Object.keys(gameState?.players || {}).filter(
+                        pid => gameState?.players?.[pid]?.functionalRole
+                      ).length;
+                      const confirmedCount = Object.values(roleSelections).reduce(
+                        (sum, r) => sum + (r.confirmedBy?.length || 0), 0
+                      );
+                      if (totalPlayers === 0) return null;
+                      return (
+                        <span className="text-[10px] text-slate-500">
+                          {confirmedCount}/{totalPlayers}
+                        </span>
+                      );
+                    })()}
                   </div>
                   {isActive && (
                     <div className={`w-2 h-2 rounded-full animate-pulse ${activeDotClasses[level.num]}`} />

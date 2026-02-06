@@ -8,6 +8,7 @@ import RoleSelection from '../components/RoleSelection/RoleSelection';
 import CrewIntro from '../components/CrewIntro/CrewIntro';
 import SuccessCriteria from '../components/levels/SuccessCriteria/SuccessCriteria';
 import Level1 from '../components/levels/Level1/Level1'; // Pretrial Checklist (Level 2)
+import LevelTimer from '../components/common/LevelTimer';
 import Level2 from '../components/levels/Level2/Level2'; // Sampling Plan (Level 3)
 import Level4 from '../components/levels/Level4/Level4'; // Mission Report (Level 4)
 import Certificate from '../components/common/Certificate';
@@ -192,7 +193,7 @@ const Game = () => {
     localStorage.setItem(`joybites_seen_intro_${gameCode}`, 'true');
   };
 
-  // Handler for selecting a level to view
+  // Handler for selecting a level to view (also handles 0 for level select screen)
   const handleSelectLevel = (levelNum) => {
     setPlayerViewLevel(levelNum);
     localStorage.setItem(`joybites_view_level_${gameCode}`, levelNum.toString());
@@ -292,7 +293,9 @@ const Game = () => {
     <>
       <Header />
       {/* Level Navigator - always show when in a level */}
-      <LevelNavigator />
+      <LevelNavigator onNavigateToLevel={handleSelectLevel} />
+      {/* Timer display */}
+      <LevelTimer timer={gameState.meta?.timer} />
       {/* Back to Level Select button */}
       <BackToLevelSelect onBack={handleBackToLevelSelect} />
       <main>

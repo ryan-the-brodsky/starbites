@@ -707,13 +707,18 @@ const Level1 = ({ onNavigateToLevel }) => {
           </div>
         </div>
 
-        {/* Instruction Banner */}
-        <div className="bg-amber-900/30 border border-amber-500/50 rounded-xl p-4 mb-4">
-          <div className="flex items-center gap-2 text-amber-300 mb-1">
-            <Volume2 className="w-5 h-5" />
-            <span className="font-semibold">READ THIS TO YOUR CREW:</span>
+        {/* Read Aloud Banner - only show when there's an active task */}
+        {currentTask && !allPhasesComplete && !isCurrentPhaseComplete && (
+          <div className="bg-gradient-to-r from-amber-600/40 via-orange-600/40 to-amber-600/40 border-2 border-amber-400 rounded-xl p-5 mb-4 text-center animate-pulse-slow">
+            <div className="flex items-center justify-center gap-3 text-amber-200">
+              <Volume2 className="w-8 h-8 text-amber-300" />
+              <span className="font-extrabold text-2xl md:text-3xl tracking-wide uppercase">
+                Read This to Your Crew Out Loud
+              </span>
+              <Volume2 className="w-8 h-8 text-amber-300" />
+            </div>
           </div>
-        </div>
+        )}
 
         {allPhasesComplete ? (
           <LevelComplete
@@ -772,7 +777,7 @@ const Level1 = ({ onNavigateToLevel }) => {
                     </span>
                   </div>
                 </div>
-                <h2 className="text-xl font-semibold text-white mb-3">"{currentTask?.name}"</h2>
+                <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 leading-tight">"{currentTask?.name}"</h2>
 
                 {/* Task Timer Bar */}
                 <div className="mt-4">

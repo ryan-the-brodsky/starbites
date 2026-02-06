@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package, FlaskConical, ShieldCheck, Users, Rocket, CheckCircle2, Factory } from 'lucide-react';
+import { Package, FlaskConical, ShieldCheck, Users, Rocket, CheckCircle2, Factory, Copy } from 'lucide-react';
 import { useGame } from '../../contexts/GameContext';
 import { getPlayerCharacter } from '../../data/characters';
 
@@ -128,6 +128,30 @@ const RoleSelection = () => {
             Players: <span className="text-cyan-300">{totalPlayers}</span>
           </p>
         </div>
+
+        {/* Team Code - large display for sharing */}
+        {isCommander && (
+          <div className="bg-slate-800/50 rounded-xl p-4 mb-6 border border-cyan-500/50 text-center">
+            <p className="text-xs text-slate-400 mb-1">Share this team name with your crew:</p>
+            <div className="flex items-center justify-center gap-3">
+              <span className="text-2xl font-bold font-mono text-cyan-400 tracking-wider">
+                {gameState?.meta?.teamName}
+              </span>
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText(gameState?.meta?.teamName || '');
+                }}
+                className="p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors"
+                title="Copy team name"
+              >
+                <Copy className="w-4 h-4 text-slate-400" />
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Teammates join at: {window.location.origin}
+            </p>
+          </div>
+        )}
 
         {/* Player Tally Summary */}
         <div className="mb-8 flex justify-center gap-4 flex-wrap">

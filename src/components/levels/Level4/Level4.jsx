@@ -1,13 +1,44 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { FileText, Send, Eye, CheckCircle2, XCircle, AlertTriangle, Target, BarChart3, FlaskConical, ChevronDown, ChevronUp, HelpCircle, RotateCcw, Award, ArrowLeft, Users, X, Check } from 'lucide-react';
+import { FileText, Send, Eye, CheckCircle2, XCircle, AlertTriangle, Target, BarChart3, FlaskConical, ChevronDown, ChevronUp, HelpCircle, RotateCcw, Award, ArrowLeft, Users, X, Check, Trophy, MessageCircle } from 'lucide-react';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Legend } from 'recharts';
 import { useGame } from '../../../contexts/GameContext';
-import { successCriteriaOptions } from '../../../data/missionData';
+import { successCriteriaOptions, operatorQuestions, operatorQuoteBank } from '../../../data/missionData';
 import { getPlayerCharacter } from '../../../data/characters';
 import LevelComplete from '../../common/LevelComplete';
 
 // Minimum sample count for statistical validity (internal policy)
+// Only applies to packaging and post-packaging steps, NOT in-process or raw materials
 const MIN_SAMPLES_FOR_STATISTICAL_VALIDITY = 30;
+
+// Steps where the 30-sample minimum applies
+const STEPS_REQUIRING_MIN_SAMPLES = ['packaging', 'release', 'shelf-life-validation'];
+
+// Check if a step requires the minimum sample size
+const stepRequiresMinSamples = (stepId) => STEPS_REQUIRING_MIN_SAMPLES.includes(stepId);
+
+// Functional role descriptions for missing crew consequences
+const FUNCTIONAL_ROLE_INFO = {
+  productDev: {
+    name: 'Product Development',
+    focus: 'flavor, texture, moisture, and sensory quality',
+    consequence: 'Product formulation was not validated. Flavor and texture defects went undetected, resulting in a product that fails to deliver the intended sensory experience. Consumer complaints about taste and texture forced a reformulation delay of 8 weeks.',
+  },
+  packageDev: {
+    name: 'Package Development',
+    focus: 'seal integrity, dimensions, containment, and shelf life',
+    consequence: 'Package design was not validated for microgravity conditions. Seal failures in zero-G caused product leakage, contaminating spacecraft equipment. Emergency package redesign required, delaying launch by 3 months.',
+  },
+  quality: {
+    name: 'Quality',
+    focus: 'microbial safety, weight consistency, documentation, and sensory scoring',
+    consequence: 'Critical quality checks were skipped. Microbial contamination was not caught during the trial, leading to a batch recall after distribution. FDA issued a warning letter, and the facility required a complete quality system overhaul.',
+  },
+  pim: {
+    name: 'Plant Industrialization',
+    focus: 'line efficiency, safety incidents, equipment compatibility, and operator training',
+    consequence: 'Plant scale-up parameters were not documented. When full production began, equipment incompatibilities caused 40% downtime. Untrained operators made critical errors, resulting in 2 safety incidents and production losses of $1.5M.',
+  },
+};
 
 // Test specifications for generating fake data
 const testSpecs = {
@@ -88,6 +119,47 @@ const productionDisasters = {
       headline: "QUALITY COMPLAINTS: Visible Defects",
       description: "Products with discoloration and inclusions reaching consumers. Social media posts about 'disgusting' appearance going viral.",
       severity: "moderate"
+    },
+    // Conversational (PIM) false positives
+    line_efficiency: {
+      headline: "PRODUCTION LOSSES: Line Efficiency Far Below Target",
+      description: "Full production launched at expected 85%+ efficiency but actual line ran at 68%. Missed delivery commitments to 3 retail partners, causing contract penalties of $400K.",
+      severity: "critical"
+    },
+    safety_incidents: {
+      headline: "OSHA INVESTIGATION: Unreported Safety Hazards",
+      description: "Safety issues reported by operators were dismissed during trial. Same hazards caused 2 recordable incidents in full production. OSHA investigation and $150K fine.",
+      severity: "critical"
+    },
+    changeover_time: {
+      headline: "SCHEDULING DISASTER: Changeover Takes 3x Longer Than Planned",
+      description: "Equipment compatibility issues identified by operators were ignored. Full production changeovers taking 90+ minutes instead of 30, destroying the production schedule.",
+      severity: "major"
+    },
+    operator_readiness: {
+      headline: "TRAINING GAP: Operators Not Prepared for Full Production",
+      description: "Operators flagged inadequate training during trial but concerns were dismissed. Critical errors in full production led to 15% scrap rate in first week.",
+      severity: "major"
+    },
+    scale_up_params: {
+      headline: "SCALE-UP FAILURE: Parameters Don't Transfer to Full Production",
+      description: "Equipment parameter variances noted during trial were not documented. Full production batch failed quality checks, requiring complete process revalidation.",
+      severity: "major"
+    },
+    downtime_events: {
+      headline: "UNPLANNED DOWNTIME: Equipment Issues Persist",
+      description: "Recurring equipment failures identified in trial were not addressed. Production line down 30% of scheduled time in first month.",
+      severity: "major"
+    },
+    cleaning_difficulty: {
+      headline: "CONTAMINATION RISK: Inadequate Cleaning Procedures",
+      description: "Cleaning difficulties reported by operators were not resolved. Cross-contamination detected in subsequent product run, triggering allergen recall.",
+      severity: "critical"
+    },
+    overall_impression: {
+      headline: "PLANT REJECTION: Operations Team Refuses Full Production",
+      description: "Plant operations team refused to run full production citing unresolved concerns from trial. 6-week delay while issues are addressed.",
+      severity: "major"
     }
   },
   // When user said "Met" but there was insufficient data (assumed success without evidence)
@@ -280,6 +352,16 @@ const generateFakeData = (samplingPlan, successCriteria, seed = 42) => {
   // About 20% of tests will have issues, more likely if not properly covered
   const uncoveredCriteria = successCriteria.filter(c => {
     if (!c?.requiredMeasurements) return false;
+    // For conversational criteria, check if relevant questions were asked
+    if (c.measurementType === 'conversational') {
+      return !c.requiredMeasurements.some(m => {
+        if (m.step === 'operator-conversation' && m.question) {
+          return samplingPlan['operator-conversation']?.[m.question]?.asked;
+        }
+        return false;
+      });
+    }
+    // For instrumental criteria, check step/test/timepoint
     return !c.requiredMeasurements.some(m => {
       const stepPlan = samplingPlan[m.step];
       if (!stepPlan) return false;
@@ -292,6 +374,9 @@ const generateFakeData = (samplingPlan, successCriteria, seed = 42) => {
 
   Object.entries(samplingPlan).forEach(([stepId, stepPlan]) => {
     if (!stepPlan || typeof stepPlan !== 'object') return;
+
+    // Skip operator-conversation - handled separately as conversational data
+    if (stepId === 'operator-conversation') return;
 
     data[stepId] = {};
     scatterData[stepId] = {};
@@ -650,6 +735,45 @@ const Level4 = ({ onNavigateToLevel }) => {
     return generateFakeData(samplingPlan, selectedCriteria, gameSeed);
   }, [samplingPlan, selectedCriteria, gameSeed]);
 
+  // Generate conversational data (operator quotes) based on asked questions
+  const conversationalData = useMemo(() => {
+    const operatorConvPlan = samplingPlan['operator-conversation'];
+    if (!operatorConvPlan) return [];
+
+    // Use same seed-based random for consistency
+    let randomState = gameSeed + 999; // Offset to get different random sequence
+    const seededRandom = () => {
+      randomState = (randomState * 1103515245 + 12345) & 0x7fffffff;
+      return randomState / 0x7fffffff;
+    };
+
+    const results = [];
+    Object.entries(operatorConvPlan).forEach(([questionId, questionData]) => {
+      if (!questionData?.asked) return;
+
+      const question = operatorQuestions.find(q => q.id === questionId);
+      const quotes = operatorQuoteBank[questionId];
+      if (!question || !quotes) return;
+
+      // ~20% chance of negative quote (similar to anomaly rate)
+      const isNegative = seededRandom() < 0.20;
+      const quotePool = isNegative ? quotes.notMet : quotes.met;
+      const selectedQuote = quotePool[Math.floor(seededRandom() * quotePool.length)];
+
+      results.push({
+        questionId,
+        question: question.question,
+        category: question.category,
+        relatedCriteria: question.relatedCriteria,
+        speaker: selectedQuote.speaker,
+        quote: selectedQuote.quote,
+        isPositive: !isNegative,
+      });
+    });
+
+    return results;
+  }, [samplingPlan, gameSeed]);
+
   // Sync local assessments with Firebase state
   useEffect(() => {
     if (Object.keys(syncedAssessments).length > 0) {
@@ -684,7 +808,103 @@ const Level4 = ({ onNavigateToLevel }) => {
         return;
       }
 
-      // Get the required tests for this criteria
+      // Check if this is a conversational criteria (PIM role)
+      if (criteria.measurementType === 'conversational') {
+        // For conversational criteria, check if the relevant questions were asked
+        const requiredQuestions = criteria.requiredMeasurements
+          .filter(m => m.step === 'operator-conversation' && m.question)
+          .map(m => m.question);
+
+        const askedQuestions = requiredQuestions.filter(qId =>
+          samplingPlan['operator-conversation']?.[qId]?.asked
+        );
+
+        if (askedQuestions.length === 0) {
+          answers[criteria.id] = {
+            met: 'insufficient',
+            reason: 'No operator conversations conducted for this criteria',
+            details: `To evaluate this criteria, you needed to ask operator questions about: ${requiredQuestions.map(qId => {
+              const q = operatorQuestions.find(oq => oq.id === qId);
+              return q?.category || qId;
+            }).join(', ')}. No relevant questions were asked.`,
+            requiredTests: criteria.requiredMeasurements.map(m => ({
+              step: m.step,
+              test: m.question,
+              description: m.description
+            })),
+            collectedTests: [],
+            anomaliesFound: [],
+            statisticallySound: true, // N/A for conversational
+            totalSamples: 0,
+            sampleDetails: [],
+            isConversational: true
+          };
+          return;
+        }
+
+        // Check if any of the quotes for asked questions are negative
+        const relevantQuotes = conversationalData.filter(cd =>
+          requiredQuestions.includes(cd.questionId)
+        );
+        const hasNegativeQuote = relevantQuotes.some(q => !q.isPositive);
+
+        if (hasNegativeQuote) {
+          const negativeQuotes = relevantQuotes.filter(q => !q.isPositive);
+          answers[criteria.id] = {
+            met: 'no',
+            reason: `Operator feedback indicates criteria not met`,
+            details: `Operators reported issues: ${negativeQuotes.map(q => `"${q.quote.substring(0, 60)}..." - ${q.speaker}`).join('; ')}`,
+            requiredTests: criteria.requiredMeasurements.map(m => ({
+              step: m.step,
+              test: m.question,
+              description: m.description
+            })),
+            collectedTests: askedQuestions.map(qId => ({
+              step: 'operator-conversation',
+              test: qId,
+              description: operatorQuestions.find(q => q.id === qId)?.category || qId
+            })),
+            anomaliesFound: negativeQuotes.map(q => ({
+              step: 'operator-conversation',
+              test: q.questionId,
+              value: 'Negative feedback',
+              expected: 'Positive feedback',
+              unit: '',
+              severity: 'critical'
+            })),
+            statisticallySound: true,
+            totalSamples: askedQuestions.length,
+            sampleDetails: [],
+            isConversational: true,
+            conversationalQuotes: relevantQuotes
+          };
+        } else {
+          answers[criteria.id] = {
+            met: 'yes',
+            reason: 'Operator feedback confirms criteria was met',
+            details: `Operators confirmed positive results: ${relevantQuotes.map(q => `"${q.quote.substring(0, 60)}..." - ${q.speaker}`).join('; ')}`,
+            requiredTests: criteria.requiredMeasurements.map(m => ({
+              step: m.step,
+              test: m.question,
+              description: m.description
+            })),
+            collectedTests: askedQuestions.map(qId => ({
+              step: 'operator-conversation',
+              test: qId,
+              description: operatorQuestions.find(q => q.id === qId)?.category || qId
+            })),
+            anomaliesFound: [],
+            statisticallySound: true,
+            totalSamples: askedQuestions.length,
+            sampleDetails: [],
+            isConversational: true,
+            conversationalQuotes: relevantQuotes
+          };
+        }
+        return;
+      }
+
+      // Get the required tests for this criteria (instrumental)
       const requiredTests = criteria.requiredMeasurements.map(m => ({
         step: m.step,
         test: m.test,
@@ -711,12 +931,15 @@ const Level4 = ({ onNavigateToLevel }) => {
         });
 
         if (testSampleCount > 0) {
+          // Only require 30-sample minimum for packaging and post-packaging steps
+          const requiresMinimum = stepRequiresMinSamples(m.step);
           sampleDetails.push({
             step: m.step,
             test: m.test,
             description: m.description,
             count: testSampleCount,
-            meetsMinimum: testSampleCount >= MIN_SAMPLES_FOR_STATISTICAL_VALIDITY
+            meetsMinimum: requiresMinimum ? testSampleCount >= MIN_SAMPLES_FOR_STATISTICAL_VALIDITY : true,
+            requiresMinimum,
           });
           totalSamples += testSampleCount;
         }
@@ -746,8 +969,16 @@ const Level4 = ({ onNavigateToLevel }) => {
         return;
       }
 
-      // Check statistical validity - ALL tests need at least 30 samples
-      const allTestsMeetMinimum = sampleDetails.every(s => s.meetsMinimum);
+      // Check statistical validity - only packaging and post-packaging steps need 30+ samples
+      // In-process and raw material steps do NOT require the 30-sample minimum
+      const allTestsMeetMinimum = sampleDetails.every(s => {
+        // Only enforce minimum for packaging and post-packaging steps
+        if (stepRequiresMinSamples(s.step)) {
+          return s.meetsMinimum;
+        }
+        // In-process/raw material steps: any samples count as sufficient
+        return true;
+      });
       const statisticallySound = allTestsMeetMinimum && sampleDetails.length > 0;
 
       // Check if any relevant anomalies exist
@@ -821,7 +1052,7 @@ const Level4 = ({ onNavigateToLevel }) => {
     });
 
     return answers;
-  }, [selectedCriteria, generatedData, anomalies]);
+  }, [selectedCriteria, generatedData, anomalies, conversationalData, samplingPlan]);
 
   // Handle assessment change - sync to Firebase
   const handleAssessmentChange = useCallback((criteriaId, value) => {
@@ -881,7 +1112,9 @@ const Level4 = ({ onNavigateToLevel }) => {
     });
 
     // Bonus for good sampling plan coverage
-    const coverageBonus = Math.floor((selectedCriteria.length - uncoveredCriteria.length) / selectedCriteria.length * 200);
+    const coverageBonus = selectedCriteria.length > 0
+      ? Math.floor((selectedCriteria.length - uncoveredCriteria.length) / selectedCriteria.length * 200)
+      : 0;
     score += coverageBonus;
 
     return { score: Math.min(score, 1000), correctCount };
@@ -914,13 +1147,22 @@ const Level4 = ({ onNavigateToLevel }) => {
       trialDataSeed: null,
     });
 
+    // Reset Level 3 completion so the sampling plan can be re-submitted
+    updateLevelState('level3', {
+      completedAt: null,
+    });
+
     // Reset local state
     setIsSubmitted(false);
     setLocalAssessments({});
     setIsEditingMode(true);
 
-    // Navigate to Level 3 (sampling plan)
-    navigateToLevel(3);
+    // Navigate to Level 3 (sampling plan) using the local navigation prop
+    if (onNavigateToLevel) {
+      onNavigateToLevel(3);
+    } else {
+      navigateToLevel(3);
+    }
   };
 
   const handleCompleteGame = () => {
@@ -945,6 +1187,16 @@ const Level4 = ({ onNavigateToLevel }) => {
 
   if (isSubmitted) {
     const { score, correctCount } = calculateScore();
+
+    // Determine which functional roles are missing from the team
+    const allFunctionalRoles = ['productDev', 'packageDev', 'quality', 'pim'];
+    const presentRoles = new Set();
+    Object.values(gameState?.players || {}).forEach(player => {
+      if (player.functionalRole) {
+        presentRoles.add(player.functionalRole);
+      }
+    });
+    const missingRoles = allFunctionalRoles.filter(r => !presentRoles.has(r));
 
     // Collect all disasters for incorrect answers AND statistically unsound conclusions
     const disasters = [];
@@ -979,35 +1231,72 @@ const Level4 = ({ onNavigateToLevel }) => {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 text-white p-4">
         <div className="max-w-4xl mx-auto">
-          {/* Header - changes based on performance */}
+          {/* Header - changes based on performance AND missing crew */}
           <div className="text-center mb-8">
-            {disasters.length === 0 ? (
+            {missingRoles.length > 0 ? (
+              // Missing crew roles override "Perfect Assessment" - can't be perfect if crew is incomplete
+              disasters.length === 0 ? (
+                <>
+                  <div className="flex justify-center mb-4">
+                    <AlertTriangle className="w-16 h-16 text-orange-400" />
+                  </div>
+                  <h2 className="text-4xl font-bold text-orange-400 mb-2">Assessment Complete - With Concerns</h2>
+                  <p className="text-orange-300">Your assessments were correct, but critical crew roles were missing. Review the consequences below.</p>
+                </>
+              ) : criticalCount > 0 ? (
+                <>
+                  <div className="flex justify-center mb-4">
+                    <XCircle className="w-16 h-16 text-red-400" />
+                  </div>
+                  <h2 className="text-4xl font-bold text-red-400 mb-2">Production Crisis!</h2>
+                  <p className="text-red-300">Assessment errors combined with missing crew would cause severe production problems</p>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-center mb-4">
+                    <AlertTriangle className="w-16 h-16 text-orange-400" />
+                  </div>
+                  <h2 className="text-4xl font-bold text-orange-400 mb-2">Assessment Complete - With Concerns</h2>
+                  <p className="text-orange-300">Critical crew roles were missing from the team. Review the impact below.</p>
+                </>
+              )
+            ) : disasters.length === 0 ? (
               <>
-                <div className="text-6xl mb-4">[Trophy]</div>
+                <div className="flex justify-center mb-4">
+                  <Trophy className="w-16 h-16 text-yellow-400" />
+                </div>
                 <h2 className="text-4xl font-bold text-green-400 mb-2">Perfect Assessment!</h2>
                 <p className="text-slate-400">Joy Bites production can proceed safely</p>
               </>
             ) : onlyStatisticalWarnings ? (
               <>
-                <div className="text-6xl mb-4">[Chart]</div>
+                <div className="flex justify-center mb-4">
+                  <BarChart3 className="w-16 h-16 text-purple-400" />
+                </div>
                 <h2 className="text-4xl font-bold text-purple-400 mb-2">Assessments Correct, But...</h2>
                 <p className="text-purple-300">Your assessments were right, but sample sizes are too small for statistical confidence</p>
               </>
             ) : criticalCount > 0 ? (
               <>
-                <div className="text-6xl mb-4">[Alert]</div>
+                <div className="flex justify-center mb-4">
+                  <XCircle className="w-16 h-16 text-red-400" />
+                </div>
                 <h2 className="text-4xl font-bold text-red-400 mb-2">Production Crisis!</h2>
                 <p className="text-red-300">Your assessment errors would cause serious problems in production</p>
               </>
             ) : majorCount > 0 ? (
               <>
-                <div className="text-6xl mb-4">[Warning]</div>
+                <div className="flex justify-center mb-4">
+                  <AlertTriangle className="w-16 h-16 text-orange-400" />
+                </div>
                 <h2 className="text-4xl font-bold text-orange-400 mb-2">Quality Issues Detected</h2>
                 <p className="text-orange-300">Your assessment would lead to significant production problems</p>
               </>
             ) : (
               <>
-                <div className="text-6xl mb-4">[Clipboard]</div>
+                <div className="flex justify-center mb-4">
+                  <FileText className="w-16 h-16 text-amber-400" />
+                </div>
                 <h2 className="text-4xl font-bold text-amber-400 mb-2">Assessment Complete</h2>
                 <p className="text-slate-400">Some minor issues would impact production efficiency</p>
               </>
@@ -1067,7 +1356,7 @@ const Level4 = ({ onNavigateToLevel }) => {
               <p className="text-sm text-slate-400 mb-4">
                 Based on your assessments, here's what would likely happen when Joy Bites goes into full production.
                 {disasters.some(d => d.isStatisticalWarning) && (
-                  <span className="text-purple-400"> Note: Some criteria were assessed correctly but lack statistical confidence (n&lt;{MIN_SAMPLES_FOR_STATISTICAL_VALIDITY} samples per measurement).</span>
+                  <span className="text-purple-400"> Note: Some criteria were assessed correctly but lack statistical confidence at packaging/post-packaging steps (n&lt;{MIN_SAMPLES_FOR_STATISTICAL_VALIDITY} samples required for packaging and QC release steps only).</span>
                 )}
               </p>
               <div className="space-y-4">
@@ -1129,6 +1418,73 @@ const Level4 = ({ onNavigateToLevel }) => {
                           )}
                         </p>
                       </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Missing Crew Member Consequences */}
+          {missingRoles.length > 0 && (
+            <div className="bg-orange-950/30 rounded-xl p-6 border border-orange-800 mb-6">
+              <h3 className="text-xl font-semibold mb-4 flex items-center gap-2 text-orange-300">
+                <Users className="w-6 h-6" />
+                Missing Crew Impact: What Went Wrong
+              </h3>
+              <p className="text-sm text-slate-400 mb-4">
+                Your team was missing {missingRoles.length} functional role{missingRoles.length > 1 ? 's' : ''}.
+                Without their expertise, critical areas were not properly covered during the trial.
+              </p>
+              <div className="space-y-4">
+                {missingRoles.map(roleKey => {
+                  const roleInfo = FUNCTIONAL_ROLE_INFO[roleKey];
+                  if (!roleInfo) return null;
+
+                  // Find criteria that belong to this missing role
+                  const affectedCriteria = selectedCriteria.filter(c => c?.role === roleKey);
+                  const unselectedRoleCriteria = (roleKey === 'productDev'
+                    ? ['Flavor familiarity', 'Texture cohesion', 'Moisture content']
+                    : roleKey === 'packageDev'
+                      ? ['Seal integrity', 'Package dimensions', 'Containment']
+                      : roleKey === 'quality'
+                        ? ['Microbial safety', 'Weight consistency', 'Documentation compliance']
+                        : ['Line efficiency', 'Operator training', 'Equipment compatibility']
+                  );
+
+                  return (
+                    <div key={roleKey} className="bg-orange-900/30 border border-orange-700/50 rounded-lg p-4">
+                      <h4 className="font-bold text-orange-300 mb-1">
+                        {roleInfo.name} — Not Represented on Team
+                      </h4>
+                      <p className="text-xs text-slate-400 mb-2">
+                        Responsible for: {roleInfo.focus}
+                      </p>
+                      <p className="text-sm text-orange-200 mb-3">
+                        {roleInfo.consequence}
+                      </p>
+                      {affectedCriteria.length > 0 && (
+                        <div className="bg-slate-900/50 rounded p-2">
+                          <p className="text-xs text-slate-500 mb-1">Affected criteria in your plan:</p>
+                          {affectedCriteria.map(c => (
+                            <p key={c.id} className="text-xs text-orange-400">• {c.text}</p>
+                          ))}
+                        </div>
+                      )}
+                      {affectedCriteria.length === 0 && (
+                        <div className="bg-slate-900/50 rounded p-2">
+                          <p className="text-xs text-slate-500 mb-1">
+                            Because {roleInfo.name} was not on the team, these areas were never included in your success criteria:
+                          </p>
+                          {unselectedRoleCriteria.map((item, i) => (
+                            <p key={i} className="text-xs text-orange-400">• {item}</p>
+                          ))}
+                          <p className="text-xs text-orange-300 mt-2 italic">
+                            This means potential failures in {roleInfo.focus} were invisible to the team —
+                            the measurements were never taken, so problems could not be detected until production.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1224,14 +1580,14 @@ const Level4 = ({ onNavigateToLevel }) => {
                                   <p className={`text-xs font-medium ${correct.statisticallySound ? 'text-green-500' : 'text-purple-400'}`}>
                                     {correct.statisticallySound
                                       ? `Statistically valid (total n=${correct.totalSamples})`
-                                      : `Sample size below minimum (total n=${correct.totalSamples}, need n>=${MIN_SAMPLES_FOR_STATISTICAL_VALIDITY} per test)`
+                                      : `Sample size below minimum for packaging/post-packaging steps (total n=${correct.totalSamples}, need n>=${MIN_SAMPLES_FOR_STATISTICAL_VALIDITY} per test at packaging or later)`
                                     }
                                   </p>
                                   {!correct.statisticallySound && (
                                     <div className="mt-1 space-y-0.5">
                                       {correct.sampleDetails.map((s, i) => (
                                         <p key={i} className={`text-xs ${s.meetsMinimum ? 'text-slate-500' : 'text-red-400'}`}>
-                                          - {s.description}: n={s.count} {s.meetsMinimum ? '' : `(need ${MIN_SAMPLES_FOR_STATISTICAL_VALIDITY - s.count} more)`}
+                                          - {s.description}: n={s.count} {s.requiresMinimum && !s.meetsMinimum ? `(packaging/post-packaging: need ${MIN_SAMPLES_FOR_STATISTICAL_VALIDITY - s.count} more)` : s.requiresMinimum ? '' : '(in-process: no minimum required)'}
                                         </p>
                                       ))}
                                     </div>
@@ -1326,19 +1682,6 @@ const Level4 = ({ onNavigateToLevel }) => {
             </div>
           </div>
         </div>
-
-        {/* Crew Agreement Panel - Show when assessments are made */}
-        {allCriteriaAssessed && (
-          <CrewAgreementPanel
-            players={gameState?.players}
-            agreements={syncedAgreements}
-            playerId={playerId}
-            onAgree={handleAgree}
-            hasAgreed={hasAgreed}
-            allAgreed={allAgreed}
-            gameState={gameState}
-          />
-        )}
 
         {/* View Previous Work Button */}
         <div className="mb-6">
@@ -1504,12 +1847,61 @@ const Level4 = ({ onNavigateToLevel }) => {
                   <ul className="text-sm space-y-1">
                     {anomalies.map((a, i) => (
                       <li key={i} className={`flex items-center gap-2 ${a.severity === 'critical' ? 'text-red-300' : 'text-amber-300'}`}>
-                        {a.severity === 'critical' ? '[Critical]' : '[Warning]'}
+                        {a.severity === 'critical' ? <XCircle className="w-3 h-3 flex-shrink-0" /> : <AlertTriangle className="w-3 h-3 flex-shrink-0" />}
                         <span className="capitalize">{a.step}</span> - {a.test}: {a.value} {a.unit}
                         <span className="text-slate-500">(expected {a.expected}, n={a.sampleCount})</span>
                       </li>
                     ))}
                   </ul>
+                </div>
+              )}
+
+              {/* Operator Conversation Results */}
+              {conversationalData.length > 0 && (
+                <div className="bg-purple-900/20 border border-purple-700/50 rounded-lg p-4">
+                  <h4 className="font-medium text-purple-300 mb-3 flex items-center gap-2">
+                    <MessageCircle className="w-5 h-5" />
+                    Operator Conversation Results
+                  </h4>
+                  <p className="text-sm text-slate-400 mb-4">
+                    Responses from plant operators based on your questions during the trial.
+                  </p>
+                  <div className="space-y-3">
+                    {conversationalData.map((cd, i) => (
+                      <div
+                        key={i}
+                        className={`rounded-lg p-4 border ${
+                          cd.isPositive
+                            ? 'bg-green-900/20 border-green-700/50'
+                            : 'bg-red-900/20 border-red-700/50'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            cd.isPositive ? 'bg-green-600/30' : 'bg-red-600/30'
+                          }`}>
+                            <MessageCircle className={`w-4 h-4 ${cd.isPositive ? 'text-green-400' : 'text-red-400'}`} />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-medium px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">
+                                {cd.category}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 mb-1 italic">
+                              Q: "{cd.question}"
+                            </p>
+                            <p className={`text-sm font-medium ${cd.isPositive ? 'text-green-300' : 'text-red-300'}`}>
+                              {cd.speaker}:
+                            </p>
+                            <p className="text-sm text-slate-200 mt-1">
+                              "{cd.quote}"
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -1556,13 +1948,13 @@ const Level4 = ({ onNavigateToLevel }) => {
                       {!isUncovered && hasInsufficientSamples && (
                         <div className="mt-1">
                           <p className="text-xs text-purple-400 flex items-center gap-1">
-                            Sample size below minimum (n&lt;{MIN_SAMPLES_FOR_STATISTICAL_VALIDITY} per test)
+                            Sample size below minimum for packaging/post-packaging steps (n&lt;{MIN_SAMPLES_FOR_STATISTICAL_VALIDITY})
                           </p>
                           <div className="text-xs text-slate-500 ml-4">
-                            {correctData.sampleDetails.map((s, i) => (
+                            {correctData.sampleDetails.filter(s => s.requiresMinimum).map((s, i) => (
                               <span key={i} className={s.meetsMinimum ? '' : 'text-purple-400'}>
                                 {s.description}: n={s.count}
-                                {i < correctData.sampleDetails.length - 1 ? ' - ' : ''}
+                                {i < correctData.sampleDetails.filter(s2 => s2.requiresMinimum).length - 1 ? ' - ' : ''}
                               </span>
                             ))}
                           </div>
@@ -1607,6 +1999,19 @@ const Level4 = ({ onNavigateToLevel }) => {
             })}
           </div>
         </div>
+
+        {/* Crew Agreement Panel - Show when assessments are made (at bottom, before submit) */}
+        {allCriteriaAssessed && (
+          <CrewAgreementPanel
+            players={gameState?.players}
+            agreements={syncedAgreements}
+            playerId={playerId}
+            onAgree={handleAgree}
+            hasAgreed={hasAgreed}
+            allAgreed={allAgreed}
+            gameState={gameState}
+          />
+        )}
 
         {/* Submit Button */}
         <div className="text-center">
