@@ -1,12 +1,11 @@
 import React from 'react';
-import { Rocket, Star, Award, Shield, BarChart2, FileText } from 'lucide-react';
+import { Rocket, Star, Award, BarChart2 } from 'lucide-react';
 import { useGame } from '../../contexts/GameContext';
 
 const badges = [
-  { id: 'launch-engineer', name: 'Launch Engineer', icon: Rocket, level: 1, color: 'text-cyan-400' },
-  { id: 'calibration-specialist', name: 'Calibration Specialist', icon: Shield, level: 2, color: 'text-green-400' },
-  { id: 'data-analyst', name: 'Data Analyst', icon: BarChart2, level: 3, color: 'text-purple-400' },
-  { id: 'mission-commander', name: 'Mission Commander', icon: Award, level: 4, color: 'text-amber-400' },
+  { id: 'criteria-master', name: 'Criteria Master', icon: Star, level: 1, color: 'text-cyan-400' },
+  { id: 'sampling-specialist', name: 'Sampling Specialist', icon: BarChart2, level: 2, color: 'text-green-400' },
+  { id: 'mission-commander', name: 'Mission Commander', icon: Award, level: 3, color: 'text-amber-400' },
 ];
 
 const Certificate = () => {

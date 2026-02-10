@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Target, FileText, CheckCircle2, AlertTriangle, Triangle, ChevronDown, ChevronUp, FlaskConical, Info, Users, Package, ShieldCheck, AlertOctagon, Clock, Factory } from 'lucide-react';
+import { Target, FileText, CheckCircle2, AlertTriangle, Triangle, ChevronDown, ChevronUp, FlaskConical, Info, Users, Package, ShieldCheck, AlertOctagon, Factory } from 'lucide-react';
 import { useGame } from '../../../contexts/GameContext';
 import {
   dfmeaSummary,
@@ -57,7 +57,6 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
     getPlayersByRole,
     updatePlayerCriteriaSelections,
     confirmCriteriaSelection,
-    markReadyForPretrial,
     isCommander
   } = useGame();
 
@@ -258,16 +257,8 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
     return Math.max(0, total - missingRolePenalty);
   };
 
-  // Check if player is ready for pretrial
-  const readyPlayers = gameState?.level2?.readyPlayers || [];
-  const isPlayerReady = readyPlayers.includes(playerId);
-  const allPlayers = Object.keys(gameState?.players || {});
-  const allPlayersReady = allPlayers.length > 0 && allPlayers.every(pid => readyPlayers.includes(pid));
-
-  // Handle proceed to pretrial - mark ready and navigate to Level 2
-  const handleProceedToPretrial = () => {
-    markReadyForPretrial();
-    // Auto-navigate to Level 2 (Pretrial Checklist)
+  // Handle proceed to next level (Sampling Plan)
+  const handleProceedToNextLevel = () => {
     if (onNavigateToLevel) {
       onNavigateToLevel(2);
     }
@@ -291,10 +282,10 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
     const missing = gameState.level1.missingRoles || [];
 
     return (
-      <div className="min-h-screen bg-gradient-to-b from-cyan-950 to-slate-950 flex items-center justify-center p-4">
-        <div className="text-center max-w-3xl mx-auto">
-          <div className="text-8xl mb-6">🎯</div>
-          <h2 className="text-4xl font-bold text-cyan-400 mb-4">SUCCESS CRITERIA SET!</h2>
+      <div className="min-h-screen bg-gradient-to-b from-cyan-950 to-slate-950 flex items-center justify-center p-3 sm:p-4">
+        <div className="text-center max-w-3xl mx-auto w-full">
+          <div className="text-6xl sm:text-8xl mb-4 sm:mb-6">🎯</div>
+          <h2 className="text-2xl sm:text-4xl font-bold text-cyan-400 mb-3 sm:mb-4">SUCCESS CRITERIA SET!</h2>
 
           {missing.length > 0 && (
             <div className="bg-red-900/30 border border-red-500 rounded-xl p-4 mb-6">
@@ -342,63 +333,13 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
             </div>
           </div>
 
-          {/* Ready Status Panel */}
-          <div className="bg-slate-800/50 rounded-xl p-4 mb-6 border border-slate-700">
-            <h3 className="text-sm font-medium text-slate-300 mb-3 flex items-center justify-center gap-2">
-              <Users className="w-4 h-4" />
-              Crew Ready Status
-            </h3>
-            <div className="flex flex-wrap justify-center gap-2 mb-4">
-              {allPlayers.map((pid) => {
-                const isReady = readyPlayers.includes(pid);
-                const playerData = gameState.players[pid];
-                const isMe = pid === playerId;
-                const character = getPlayerCharacter(pid, playerData?.functionalRole);
-                return (
-                  <div
-                    key={pid}
-                    className={`px-3 py-2 rounded-lg border flex items-center gap-2 ${
-                      isReady
-                        ? 'bg-green-900/30 border-green-500 text-green-300'
-                        : 'bg-slate-700/50 border-slate-600 text-slate-400'
-                    } ${isMe ? 'ring-2 ring-cyan-500' : ''}`}
-                  >
-                    <span className="text-lg">{character.emoji}</span>
-                    {isReady ? (
-                      <CheckCircle2 className="w-4 h-4 text-green-400" />
-                    ) : (
-                      <Clock className="w-4 h-4 text-slate-500 animate-pulse" />
-                    )}
-                    <span className="text-sm font-medium">{character.name}</span>
-                    {isMe && <span className="text-xs text-cyan-400">(You)</span>}
-                  </div>
-                );
-              })}
-            </div>
-            <p className="text-xs text-slate-500">
-              {readyPlayers.length}/{allPlayers.length} crew members ready
-            </p>
-          </div>
-
           {/* Proceed Button */}
-          {!isPlayerReady ? (
-            <button
-              onClick={handleProceedToPretrial}
-              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 px-10 py-5 rounded-xl font-bold text-xl transition-all hover:scale-105 shadow-lg"
-            >
-              I'm Ready - Proceed to Pretrial Checklist
-            </button>
-          ) : (
-            <div className="bg-green-900/30 border border-green-500 rounded-xl p-4">
-              <div className="flex items-center justify-center gap-2 text-green-400 mb-2">
-                <CheckCircle2 className="w-6 h-6" />
-                <span className="font-bold text-lg">You're on standby for the Pretrial Checklist!</span>
-              </div>
-              <p className="text-green-300">
-                The checklist will begin when the Commander starts. Get ready!
-              </p>
-            </div>
-          )}
+          <button
+            onClick={handleProceedToNextLevel}
+            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 px-6 sm:px-10 py-4 sm:py-5 rounded-xl font-bold text-lg sm:text-xl transition-all hover:scale-105 shadow-lg"
+          >
+            Continue to Sampling Plan
+          </button>
         </div>
       </div>
     );
@@ -420,21 +361,21 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
   const RoleIcon = roleInfo.icon;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-cyan-950 text-white p-4">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-cyan-950 text-white p-3 sm:p-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-cyan-400 mb-2">Level 1: Define Success Criteria</h1>
-          <p className="text-slate-400">Work with your function to select criteria that define mission success</p>
+        <div className="text-center mb-4 sm:mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-cyan-400 mb-1 sm:mb-2">Level 1: Define Success Criteria</h1>
+          <p className="text-sm sm:text-base text-slate-400">Work with your function to select criteria that define mission success</p>
         </div>
 
         {/* Your Role Banner */}
-        <div className={`${colors.bg} border ${colors.border} rounded-xl p-4 mb-6`}>
-          <div className="flex items-center justify-center gap-3">
-            <RoleIcon className={`w-8 h-8 ${colors.text}`} />
+        <div className={`${colors.bg} border ${colors.border} rounded-xl p-3 sm:p-4 mb-4 sm:mb-6`}>
+          <div className="flex items-center justify-center gap-2 sm:gap-3">
+            <RoleIcon className={`w-6 h-6 sm:w-8 sm:h-8 ${colors.text}`} />
             <div className="text-center">
-              <h2 className={`text-xl font-bold ${colors.text}`}>{roleInfo.name}</h2>
-              <p className="text-sm text-slate-400">{roleInfo.description}</p>
+              <h2 className={`text-lg sm:text-xl font-bold ${colors.text}`}>{roleInfo.name}</h2>
+              <p className="text-xs sm:text-sm text-slate-400">{roleInfo.description}</p>
             </div>
           </div>
         </div>
@@ -457,12 +398,12 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
         )}
 
         {/* Team Consensus Status */}
-        <div className="bg-slate-800/50 rounded-xl p-4 mb-6 border border-slate-700">
+        <div className="bg-slate-800/50 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6 border border-slate-700">
           <h3 className="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
             <Users className="w-4 h-4" />
             Team Consensus Status
           </h3>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
             {Object.entries(ROLE_INFO).map(([roleKey, info]) => {
               const status = getRoleConsensusStatus(roleKey);
               const roleColors = colorClasses[info.color];
@@ -741,16 +682,16 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
         </div>
 
         {/* Success Criteria Selection */}
-        <div className={`rounded-xl p-6 border-2 ${colors.border} ${colors.bg}`}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <FileText className={`w-6 h-6 ${colors.text}`} />
-              <div>
-                <h3 className="text-xl font-semibold">Your {roleInfo.name} Criteria</h3>
-                <p className="text-sm text-slate-400">Select up to {MAX_CRITERIA_PER_ROLE} criteria for your function</p>
+        <div className={`rounded-xl p-3 sm:p-6 border-2 ${colors.border} ${colors.bg}`}>
+          <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <FileText className={`w-5 h-5 sm:w-6 sm:h-6 ${colors.text} flex-shrink-0`} />
+              <div className="min-w-0">
+                <h3 className="text-base sm:text-xl font-semibold truncate">Your {roleInfo.name} Criteria</h3>
+                <p className="text-xs sm:text-sm text-slate-400">Select up to {MAX_CRITERIA_PER_ROLE} criteria</p>
               </div>
             </div>
-            <div className={`text-lg font-bold px-4 py-2 rounded-lg ${
+            <div className={`text-sm sm:text-lg font-bold px-2 sm:px-4 py-1 sm:py-2 rounded-lg flex-shrink-0 ${
               selectedCriteria.length === MAX_CRITERIA_PER_ROLE
                 ? 'bg-green-900/50 text-green-300'
                 : selectedCriteria.length > 0
@@ -790,7 +731,7 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
                   <div
                     key={criteria.id}
                     onClick={() => !isDisabled && toggleCriteria(criteria.id)}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                    className={`p-3 sm:p-4 rounded-lg border-2 cursor-pointer transition-all ${
                       isSelected
                         ? `${colors.border} ${colors.bg}`
                         : isDisabled
@@ -838,7 +779,7 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
         </div>
 
         {/* Action Buttons */}
-        <div className="mt-8 text-center">
+        <div className="mt-6 sm:mt-8 pb-16 sm:pb-8 text-center">
           {!hasConfirmed ? (
             <>
               <button

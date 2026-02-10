@@ -56,7 +56,7 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 text-white p-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 text-white p-4 sm:p-6">
       {/* Stars background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         {[...Array(80)].map((_, i) => (
@@ -75,18 +75,18 @@ const Home = () => {
 
       <div className="max-w-lg mx-auto relative z-10">
         {/* Header */}
-        <div className="text-center mb-10">
-          <div className="flex justify-center mb-4">
+        <div className="text-center mb-8 sm:mb-10">
+          <div className="flex justify-center mb-3 sm:mb-4">
             <div className="relative">
-              <Rocket className="w-20 h-20 text-cyan-400 transform -rotate-45" />
-              <Star className="w-8 h-8 text-yellow-400 absolute -top-2 -right-2 animate-pulse" />
+              <Rocket className="w-14 h-14 sm:w-20 sm:h-20 text-cyan-400 transform -rotate-45" />
+              <Star className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-400 absolute -top-1 sm:-top-2 -right-1 sm:-right-2 animate-pulse" />
             </div>
           </div>
-          <h1 className="text-5xl font-bold mb-2 bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
+          <h1 className="text-3xl sm:text-5xl font-bold mb-2 bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
             MISSION NORTH STAR
           </h1>
-          <p className="text-xl text-cyan-300">Joy Bites Production Training</p>
-          <p className="text-slate-400 mt-2">A Taste of Home, Even in Orbit</p>
+          <p className="text-lg sm:text-xl text-cyan-300">Joy Bites Production Training</p>
+          <p className="text-sm sm:text-base text-slate-400 mt-2">A Taste of Home, Even in Orbit</p>
         </div>
 
         {/* Team Selection */}
@@ -109,7 +109,7 @@ const Home = () => {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className={`bg-gradient-to-br ${mode === 'create' ? 'from-amber-900/50 to-orange-900/50 border-amber-500' : 'from-cyan-900/50 to-blue-900/50 border-cyan-500'} border-2 rounded-2xl p-6`}>
+            <div className={`bg-gradient-to-br ${mode === 'create' ? 'from-amber-900/50 to-orange-900/50 border-amber-500' : 'from-cyan-900/50 to-blue-900/50 border-cyan-500'} border-2 rounded-2xl p-4 sm:p-6`}>
               <div className="flex items-center gap-3 mb-4">
                 {mode === 'create' ? (
                   <Plus className="w-8 h-8 text-amber-400" />
@@ -170,25 +170,23 @@ const Home = () => {
         )}
 
         {/* Info Section */}
-        <div className="mt-8 bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+        <div className="mt-6 sm:mt-8 bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
           <h3 className="text-lg font-semibold text-slate-200 mb-3">How to Play</h3>
           <ol className="text-sm text-slate-400 space-y-2">
             <li><span className="text-cyan-400 font-mono">1.</span> Create a team or join an existing one (up to 12 players per team)</li>
-            <li><span className="text-cyan-400 font-mono">2.</span> Work through all 4 mission levels together</li>
-            <li><span className="text-cyan-400 font-mono">3.</span> Define success criteria, complete checklists, design sampling plans</li>
-            <li><span className="text-cyan-400 font-mono">4.</span> Analyze trial data and submit your final mission report</li>
+            <li><span className="text-cyan-400 font-mono">2.</span> Work through all 3 mission levels together</li>
+            <li><span className="text-cyan-400 font-mono">3.</span> Define success criteria, design sampling plans, and analyze trial data</li>
           </ol>
         </div>
 
         {/* Game Levels Preview */}
-        <div className="mt-6 bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+        <div className="mt-4 sm:mt-6 bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
           <h3 className="text-lg font-semibold text-slate-200 mb-3">Mission Levels</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {[
               { num: 1, name: 'Success Criteria', icon: '🎯' },
-              { num: 2, name: 'Pretrial Checklist', icon: '🚀' },
-              { num: 3, name: 'Sampling Plan', icon: '📊' },
-              { num: 4, name: 'Mission Report', icon: '📝' },
+              { num: 2, name: 'Sampling Plan', icon: '📊' },
+              { num: 3, name: 'Mission Report', icon: '📝' },
             ].map(level => (
               <div key={level.num} className="bg-slate-900/50 rounded-lg p-3 text-center">
                 <div className="text-2xl mb-1">{level.icon}</div>

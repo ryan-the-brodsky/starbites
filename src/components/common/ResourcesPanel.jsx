@@ -3,13 +3,6 @@ import { X, FileText, Download, ExternalLink } from 'lucide-react';
 
 const resources = [
   {
-    id: 'pretrial-checklist',
-    name: 'Pretrial Checklist Template',
-    description: 'Complete checklist for plant trial preparation',
-    icon: '📋',
-    type: 'template',
-  },
-  {
     id: 'trial-summary',
     name: 'Plant Trial Summary Format',
     description: 'Template structure for final reports',

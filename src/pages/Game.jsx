@@ -1,25 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Target, Rocket, FlaskConical, FileText, Lock, CheckCircle2, Shield, ShieldOff, ChevronLeft } from 'lucide-react';
+import { Target, FlaskConical, FileText, Lock, CheckCircle2, Shield, ShieldOff, ChevronLeft } from 'lucide-react';
 import { useGame } from '../contexts/GameContext';
 import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/common/Header';
 import RoleSelection from '../components/RoleSelection/RoleSelection';
 import CrewIntro from '../components/CrewIntro/CrewIntro';
 import SuccessCriteria from '../components/levels/SuccessCriteria/SuccessCriteria';
-import Level1 from '../components/levels/Level1/Level1'; // Pretrial Checklist (Level 2)
 import LevelTimer from '../components/common/LevelTimer';
-import Level2 from '../components/levels/Level2/Level2'; // Sampling Plan (Level 3)
-import Level4 from '../components/levels/Level4/Level4'; // Mission Report (Level 4)
+import Level2 from '../components/levels/Level2/Level2'; // Sampling Plan (Level 2)
+import Level4 from '../components/levels/Level4/Level4'; // Mission Report (Level 3)
 import Certificate from '../components/common/Certificate';
 import LevelNavigator from '../components/common/LevelNavigator';
 
 // Level information for the level select screen
 const levelInfo = [
   { num: 1, name: 'Success Criteria', description: 'Define what success looks like', icon: Target, color: 'cyan' },
-  { num: 2, name: 'Pretrial Checklist', description: 'Commander & Crew coordination', icon: Rocket, color: 'orange' },
-  { num: 3, name: 'Sampling Plan', description: 'Design your sampling strategy', icon: FlaskConical, color: 'green' },
-  { num: 4, name: 'Mission Report', description: 'Transmit final report to HQ', icon: FileText, color: 'amber' },
+  { num: 2, name: 'Sampling Plan', description: 'Design your sampling strategy', icon: FlaskConical, color: 'green' },
+  { num: 3, name: 'Mission Report', description: 'Transmit final report to HQ', icon: FileText, color: 'amber' },
 ];
 
 // Color classes for each level
@@ -141,7 +139,7 @@ const LevelSelectScreen = ({ gameState, onSelectLevel, isTestMode, onToggleTestM
 const BackToLevelSelect = ({ onBack }) => (
   <button
     onClick={onBack}
-    className="fixed bottom-4 left-4 z-40 flex items-center gap-2 px-4 py-2 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 rounded-lg text-slate-300 text-sm transition-all hover:scale-105"
+    className="fixed bottom-4 left-4 safe-bottom-fixed z-40 flex items-center gap-2 px-3 py-2 sm:px-4 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 rounded-lg text-slate-300 text-xs sm:text-sm transition-all hover:scale-105"
   >
     <ChevronLeft className="w-4 h-4" />
     Level Select
@@ -234,9 +232,9 @@ const Game = () => {
     );
   }
 
-  // Check if all levels complete - show certificate (4 badges)
+  // Check if all levels complete - show certificate (3 badges)
   const badges = gameState.badges || [];
-  const allLevelsComplete = badges.length === 4;
+  const allLevelsComplete = badges.length === 3;
   if (allLevelsComplete) {
     return (
       <>
@@ -300,9 +298,8 @@ const Game = () => {
       <BackToLevelSelect onBack={handleBackToLevelSelect} />
       <main>
         {currentViewLevel === 1 && <SuccessCriteria onNavigateToLevel={handleSelectLevel} />}
-        {currentViewLevel === 2 && <Level1 onNavigateToLevel={handleSelectLevel} />}
-        {currentViewLevel === 3 && <Level2 onNavigateToLevel={handleSelectLevel} />}
-        {currentViewLevel === 4 && <Level4 onNavigateToLevel={handleSelectLevel} />}
+        {currentViewLevel === 2 && <Level2 onNavigateToLevel={handleSelectLevel} />}
+        {currentViewLevel === 3 && <Level4 onNavigateToLevel={handleSelectLevel} />}
       </main>
     </>
   );

@@ -77,7 +77,7 @@ const Header = () => {
                 {/* Level */}
                 <div className="hidden sm:block bg-slate-800 rounded px-3 py-1 border border-slate-700">
                   <div className="text-[10px] text-slate-500">LEVEL</div>
-                  <div className="text-sm text-purple-400 font-bold">{gameState.meta.currentLevel}/4</div>
+                  <div className="text-sm text-purple-400 font-bold">{gameState.meta.currentLevel}/3</div>
                 </div>
 
                 {/* Player Identity Badge */}
@@ -157,7 +157,7 @@ const Header = () => {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500">Level:</span>
-                    <span className="text-purple-400">{gameState.meta.currentLevel}/4</span>
+                    <span className="text-purple-400">{gameState.meta.currentLevel}/3</span>
                   </div>
                   <button
                     onClick={handleLeave}

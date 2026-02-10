@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "load-test": "node scripts/load-test.js",
+    "load-test:small": "node scripts/load-test.js --teams=3 --players=3",
+    "load-test:cleanup": "node scripts/load-test.js --cleanup-only"
   },
   "dependencies": {
     "firebase": "^12.8.0",

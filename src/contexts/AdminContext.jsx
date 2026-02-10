@@ -131,6 +131,21 @@ export const AdminProvider = ({ children }) => {
     }
   }, [useFirebase]);
 
+  // Delete all teams
+  const deleteAllTeams = useCallback(async () => {
+    const gameCodes = Object.keys(allGames);
+    for (const gameCode of gameCodes) {
+      if (useFirebase) {
+        await removeGameFromDB(gameCode);
+      } else {
+        localStorage.removeItem(`joybites_game_${gameCode}`);
+      }
+    }
+    if (!useFirebase) {
+      setAllGames({});
+    }
+  }, [allGames, useFirebase]);
+
   // Advance all teams to a target level
   const advanceAllTeams = useCallback(async (targetLevel) => {
     for (const [gameCode, game] of Object.entries(allGames)) {
@@ -185,6 +200,7 @@ export const AdminProvider = ({ children }) => {
     resetTeamProgress,
     restoreTeam,
     deleteTeam,
+    deleteAllTeams,
     advanceAllTeams,
     setGlobalTimer,
   };

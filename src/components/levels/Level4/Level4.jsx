@@ -692,13 +692,13 @@ const Level4 = ({ onNavigateToLevel }) => {
 
   // Get data from previous levels
   const selectedCriteria = gameState?.level1?.selectedCriteria || [];
-  const samplingPlan = gameState?.level3?.samplingPlan || {};
+  const samplingPlan = gameState?.level2?.samplingPlan || {};
 
   // Get synced state from Firebase
-  const level4State = gameState?.level4 || {};
-  const syncedAssessments = level4State.criteriaAssessments || {};
-  const syncedAgreements = level4State.playerAgreements || {};
-  const trialDataSeed = level4State.trialDataSeed;
+  const level3State = gameState?.level3 || {};
+  const syncedAssessments = level3State.criteriaAssessments || {};
+  const syncedAgreements = level3State.playerAgreements || {};
+  const trialDataSeed = level3State.trialDataSeed;
 
   // Local state for assessments - sync with Firebase
   const [localAssessments, setLocalAssessments] = useState(syncedAssessments);
@@ -726,7 +726,7 @@ const Level4 = ({ onNavigateToLevel }) => {
   // Store the seed in Firebase if not already stored
   useEffect(() => {
     if (!trialDataSeed && gameSeed && gameState?.gameCode) {
-      updateLevelState('level4', { trialDataSeed: gameSeed });
+      updateLevelState('level3', { trialDataSeed: gameSeed });
     }
   }, [trialDataSeed, gameSeed, gameState?.gameCode, updateLevelState]);
 
@@ -783,10 +783,10 @@ const Level4 = ({ onNavigateToLevel }) => {
 
   // Check if level is already submitted (from Firebase)
   useEffect(() => {
-    if (level4State.completedAt && !isEditingMode) {
+    if (level3State.completedAt && !isEditingMode) {
       setIsSubmitted(true);
     }
-  }, [level4State.completedAt, isEditingMode]);
+  }, [level3State.completedAt, isEditingMode]);
 
   // Determine the "correct" answers based on data with detailed explanations
   const correctAnswers = useMemo(() => {
@@ -1063,7 +1063,7 @@ const Level4 = ({ onNavigateToLevel }) => {
     setLocalAssessments(newAssessments);
 
     // Sync to Firebase - reset agreements when assessments change
-    updateLevelState('level4', {
+    updateLevelState('level3', {
       criteriaAssessments: newAssessments,
       playerAgreements: {} // Reset agreements when any assessment changes
     });
@@ -1076,7 +1076,7 @@ const Level4 = ({ onNavigateToLevel }) => {
       [playerId]: true
     };
 
-    updateLevelState('level4', {
+    updateLevelState('level3', {
       playerAgreements: newAgreements
     });
   }, [syncedAgreements, playerId, updateLevelState]);
@@ -1123,7 +1123,7 @@ const Level4 = ({ onNavigateToLevel }) => {
   const handleSubmit = () => {
     const { score, correctCount } = calculateScore();
 
-    updateLevelState('level4', {
+    updateLevelState('level3', {
       criteriaAssessments: localAssessments,
       correctAnswers,
       score,
@@ -1135,8 +1135,8 @@ const Level4 = ({ onNavigateToLevel }) => {
   };
 
   const handleReturnToSampling = () => {
-    // Reset Level 4 state to allow fresh assessment after editing sampling plan
-    updateLevelState('level4', {
+    // Reset Level 3 (Mission Report) state to allow fresh assessment after editing sampling plan
+    updateLevelState('level3', {
       criteriaAssessments: {},
       playerAgreements: {},
       correctAnswers: null,
@@ -1147,8 +1147,8 @@ const Level4 = ({ onNavigateToLevel }) => {
       trialDataSeed: null,
     });
 
-    // Reset Level 3 completion so the sampling plan can be re-submitted
-    updateLevelState('level3', {
+    // Reset Level 2 (Sampling Plan) completion so it can be re-submitted
+    updateLevelState('level2', {
       completedAt: null,
     });
 
@@ -1157,11 +1157,11 @@ const Level4 = ({ onNavigateToLevel }) => {
     setLocalAssessments({});
     setIsEditingMode(true);
 
-    // Navigate to Level 3 (sampling plan) using the local navigation prop
+    // Navigate to Level 2 (Sampling Plan) using the local navigation prop
     if (onNavigateToLevel) {
-      onNavigateToLevel(3);
+      onNavigateToLevel(2);
     } else {
-      navigateToLevel(3);
+      navigateToLevel(2);
     }
   };
 
@@ -1170,7 +1170,7 @@ const Level4 = ({ onNavigateToLevel }) => {
   };
 
   const handleFinalComplete = () => {
-    completeLevel(4);
+    completeLevel(3);
   };
 
   // Show the LevelComplete transition screen before the certificate
@@ -1240,7 +1240,7 @@ const Level4 = ({ onNavigateToLevel }) => {
                   <div className="flex justify-center mb-4">
                     <AlertTriangle className="w-16 h-16 text-orange-400" />
                   </div>
-                  <h2 className="text-4xl font-bold text-orange-400 mb-2">Assessment Complete - With Concerns</h2>
+                  <h2 className="text-2xl sm:text-4xl font-bold text-orange-400 mb-2">Assessment Complete - With Concerns</h2>
                   <p className="text-orange-300">Your assessments were correct, but critical crew roles were missing. Review the consequences below.</p>
                 </>
               ) : criticalCount > 0 ? (
@@ -1248,7 +1248,7 @@ const Level4 = ({ onNavigateToLevel }) => {
                   <div className="flex justify-center mb-4">
                     <XCircle className="w-16 h-16 text-red-400" />
                   </div>
-                  <h2 className="text-4xl font-bold text-red-400 mb-2">Production Crisis!</h2>
+                  <h2 className="text-2xl sm:text-4xl font-bold text-red-400 mb-2">Production Crisis!</h2>
                   <p className="text-red-300">Assessment errors combined with missing crew would cause severe production problems</p>
                 </>
               ) : (
@@ -1256,7 +1256,7 @@ const Level4 = ({ onNavigateToLevel }) => {
                   <div className="flex justify-center mb-4">
                     <AlertTriangle className="w-16 h-16 text-orange-400" />
                   </div>
-                  <h2 className="text-4xl font-bold text-orange-400 mb-2">Assessment Complete - With Concerns</h2>
+                  <h2 className="text-2xl sm:text-4xl font-bold text-orange-400 mb-2">Assessment Complete - With Concerns</h2>
                   <p className="text-orange-300">Critical crew roles were missing from the team. Review the impact below.</p>
                 </>
               )
@@ -1265,7 +1265,7 @@ const Level4 = ({ onNavigateToLevel }) => {
                 <div className="flex justify-center mb-4">
                   <Trophy className="w-16 h-16 text-yellow-400" />
                 </div>
-                <h2 className="text-4xl font-bold text-green-400 mb-2">Perfect Assessment!</h2>
+                <h2 className="text-2xl sm:text-4xl font-bold text-green-400 mb-2">Perfect Assessment!</h2>
                 <p className="text-slate-400">Joy Bites production can proceed safely</p>
               </>
             ) : onlyStatisticalWarnings ? (
@@ -1273,7 +1273,7 @@ const Level4 = ({ onNavigateToLevel }) => {
                 <div className="flex justify-center mb-4">
                   <BarChart3 className="w-16 h-16 text-purple-400" />
                 </div>
-                <h2 className="text-4xl font-bold text-purple-400 mb-2">Assessments Correct, But...</h2>
+                <h2 className="text-2xl sm:text-4xl font-bold text-purple-400 mb-2">Assessments Correct, But...</h2>
                 <p className="text-purple-300">Your assessments were right, but sample sizes are too small for statistical confidence</p>
               </>
             ) : criticalCount > 0 ? (
@@ -1281,7 +1281,7 @@ const Level4 = ({ onNavigateToLevel }) => {
                 <div className="flex justify-center mb-4">
                   <XCircle className="w-16 h-16 text-red-400" />
                 </div>
-                <h2 className="text-4xl font-bold text-red-400 mb-2">Production Crisis!</h2>
+                <h2 className="text-2xl sm:text-4xl font-bold text-red-400 mb-2">Production Crisis!</h2>
                 <p className="text-red-300">Your assessment errors would cause serious problems in production</p>
               </>
             ) : majorCount > 0 ? (
@@ -1289,7 +1289,7 @@ const Level4 = ({ onNavigateToLevel }) => {
                 <div className="flex justify-center mb-4">
                   <AlertTriangle className="w-16 h-16 text-orange-400" />
                 </div>
-                <h2 className="text-4xl font-bold text-orange-400 mb-2">Quality Issues Detected</h2>
+                <h2 className="text-2xl sm:text-4xl font-bold text-orange-400 mb-2">Quality Issues Detected</h2>
                 <p className="text-orange-300">Your assessment would lead to significant production problems</p>
               </>
             ) : (
@@ -1297,7 +1297,7 @@ const Level4 = ({ onNavigateToLevel }) => {
                 <div className="flex justify-center mb-4">
                   <FileText className="w-16 h-16 text-amber-400" />
                 </div>
-                <h2 className="text-4xl font-bold text-amber-400 mb-2">Assessment Complete</h2>
+                <h2 className="text-2xl sm:text-4xl font-bold text-amber-400 mb-2">Assessment Complete</h2>
                 <p className="text-slate-400">Some minor issues would impact production efficiency</p>
               </>
             )}
@@ -1313,24 +1313,24 @@ const Level4 = ({ onNavigateToLevel }) => {
                   ? 'bg-red-900/20 border-red-600'
                   : 'bg-slate-800/50 border-slate-700'
           }`}>
-            <div className="flex items-center justify-center gap-8 flex-wrap">
+            <div className="flex items-center justify-center gap-4 sm:gap-8 flex-wrap">
               <div>
-                <div className="text-sm text-slate-400">Correct Assessments</div>
-                <div className={`text-3xl font-bold ${
+                <div className="text-xs sm:text-sm text-slate-400">Correct Assessments</div>
+                <div className={`text-2xl sm:text-3xl font-bold ${
                   correctCount === selectedCriteria.length ? 'text-green-400' : 'text-cyan-400'
                 }`}>{correctCount} / {selectedCriteria.length}</div>
               </div>
               <div className="w-px h-12 bg-slate-700 hidden sm:block" />
               <div>
-                <div className="text-sm text-slate-400">Level Score</div>
-                <div className="text-3xl font-bold text-cyan-400">{score} PTS</div>
+                <div className="text-xs sm:text-sm text-slate-400">Level Score</div>
+                <div className="text-2xl sm:text-3xl font-bold text-cyan-400">{score} PTS</div>
               </div>
               {actualErrorCount > 0 && (
                 <>
                   <div className="w-px h-12 bg-slate-700 hidden sm:block" />
                   <div>
                     <div className="text-sm text-slate-400">Production Issues</div>
-                    <div className="text-3xl font-bold text-red-400">{actualErrorCount}</div>
+                    <div className="text-2xl sm:text-3xl font-bold text-red-400">{actualErrorCount}</div>
                   </div>
                 </>
               )}
@@ -1339,7 +1339,7 @@ const Level4 = ({ onNavigateToLevel }) => {
                   <div className="w-px h-12 bg-slate-700 hidden sm:block" />
                   <div>
                     <div className="text-sm text-slate-400">Statistical Warnings</div>
-                    <div className="text-3xl font-bold text-purple-400">{statisticalWarningCount}</div>
+                    <div className="text-2xl sm:text-3xl font-bold text-purple-400">{statisticalWarningCount}</div>
                   </div>
                 </>
               )}
@@ -1348,8 +1348,8 @@ const Level4 = ({ onNavigateToLevel }) => {
 
           {/* Production Disasters Section */}
           {disasters.length > 0 && (
-            <div className="bg-red-950/30 rounded-xl p-6 border border-red-800 mb-6">
-              <h3 className="text-xl font-semibold mb-4 flex items-center gap-2 text-red-300">
+            <div className="bg-red-950/30 rounded-xl p-3 sm:p-6 border border-red-800 mb-4 sm:mb-6">
+              <h3 className="text-base sm:text-xl font-semibold mb-3 sm:mb-4 flex items-center gap-2 text-red-300">
                 <AlertTriangle className="w-6 h-6" />
                 What Would Happen in Production
               </h3>
@@ -1657,16 +1657,16 @@ const Level4 = ({ onNavigateToLevel }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 text-white p-4">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 text-white p-3 sm:p-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-cyan-400 mb-2">Level 4: Mission Report</h1>
-          <p className="text-slate-400">Analyze your trial data and determine if success criteria were met</p>
+        <div className="text-center mb-4 sm:mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-cyan-400 mb-1 sm:mb-2">Level 3: Mission Report</h1>
+          <p className="text-sm sm:text-base text-slate-400">Analyze your trial data and determine if success criteria were met</p>
         </div>
 
         {/* Instructions */}
-        <div className="bg-gradient-to-r from-amber-900/30 to-orange-900/30 rounded-xl p-4 border border-amber-700/50 mb-6">
+        <div className="bg-gradient-to-r from-amber-900/30 to-orange-900/30 rounded-xl p-3 sm:p-4 border border-amber-700/50 mb-4 sm:mb-6">
           <div className="flex items-start gap-3">
             <HelpCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
             <div>
@@ -1697,11 +1697,11 @@ const Level4 = ({ onNavigateToLevel }) => {
 
         {/* Previous Work Panel */}
         {showPreviousWork && (
-          <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700 mb-6">
-            <h3 className="text-lg font-semibold mb-4">Your Previous Work</h3>
-            <div className="grid md:grid-cols-2 gap-4">
+          <div className="bg-slate-800/50 rounded-xl p-3 sm:p-6 border border-slate-700 mb-4 sm:mb-6">
+            <h3 className="text-lg font-semibold mb-3 sm:mb-4">Your Previous Work</h3>
+            <div className="grid md:grid-cols-2 gap-3 sm:gap-4">
               {/* Level 1 - Success Criteria */}
-              <div className="bg-slate-900/50 rounded-lg p-4">
+              <div className="bg-slate-900/50 rounded-lg p-3 sm:p-4">
                 <h4 className="font-medium text-cyan-400 mb-2 flex items-center gap-2">
                   <Target className="w-4 h-4" />
                   Level 1: Success Criteria
@@ -1716,15 +1716,15 @@ const Level4 = ({ onNavigateToLevel }) => {
                 </ul>
               </div>
 
-              {/* Level 3 - Sampling Plan */}
+              {/* Level 2 - Sampling Plan */}
               <div className="bg-slate-900/50 rounded-lg p-4">
                 <h4 className="font-medium text-cyan-400 mb-2 flex items-center gap-2">
                   <FlaskConical className="w-4 h-4" />
-                  Level 3: Sampling Plan
+                  Level 2: Sampling Plan
                 </h4>
                 <div className="text-sm text-slate-400 space-y-1">
-                  <p>Samples Used: {gameState?.level3?.samplesUsed || 0} / 300</p>
-                  <p>Criteria Coverage: {gameState?.level3?.criteriaCoverage?.covered || 0} / {selectedCriteria.length}</p>
+                  <p>Samples Used: {gameState?.level2?.samplesUsed || 0} / 300</p>
+                  <p>Criteria Coverage: {gameState?.level2?.criteriaCoverage?.covered || 0} / {selectedCriteria.length}</p>
                   {uncoveredCriteria.length > 0 && (
                     <p className="text-amber-400">
                       Warning: {uncoveredCriteria.length} criteria not covered by sampling plan
@@ -1737,13 +1737,13 @@ const Level4 = ({ onNavigateToLevel }) => {
         )}
 
         {/* Generated Data Display */}
-        <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <BarChart3 className="w-6 h-6 text-cyan-400" />
-              <div>
-                <h2 className="text-xl font-semibold">Trial Production Data</h2>
-                <p className="text-sm text-slate-400">Generated from your sampling plan</p>
+        <div className="bg-slate-800/50 rounded-xl p-3 sm:p-6 border border-slate-700 mb-4 sm:mb-6">
+          <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-cyan-400 flex-shrink-0" />
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-xl font-semibold">Trial Production Data</h2>
+                <p className="text-xs sm:text-sm text-slate-400">Generated from your sampling plan</p>
               </div>
             </div>
             <button
@@ -1758,8 +1758,8 @@ const Level4 = ({ onNavigateToLevel }) => {
           {showData && (
             <div className="space-y-6">
               {Object.entries(generatedData).map(([stepId, stepData]) => (
-                <div key={stepId} className="bg-slate-900/50 rounded-lg p-4">
-                  <h3 className="font-medium text-cyan-300 mb-3 capitalize">{stepId.replace(/([A-Z])/g, ' $1')}</h3>
+                <div key={stepId} className="bg-slate-900/50 rounded-lg p-3 sm:p-4">
+                  <h3 className="font-medium text-cyan-300 mb-3 capitalize text-sm sm:text-base">{stepId.replace(/([A-Z])/g, ' $1')}</h3>
 
                   {/* Summary Table */}
                   <div className="overflow-x-auto mb-4">
@@ -1909,12 +1909,12 @@ const Level4 = ({ onNavigateToLevel }) => {
         </div>
 
         {/* Success Criteria Assessment */}
-        <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700 mb-6">
-          <div className="flex items-center gap-3 mb-6">
-            <Target className="w-6 h-6 text-cyan-400" />
+        <div className="bg-slate-800/50 rounded-xl p-3 sm:p-6 border border-slate-700 mb-4 sm:mb-6">
+          <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+            <Target className="w-5 h-5 sm:w-6 sm:h-6 text-cyan-400 flex-shrink-0" />
             <div>
-              <h2 className="text-xl font-semibold">Success Criteria Assessment</h2>
-              <p className="text-sm text-slate-400">Based on the data, determine if each criteria was met</p>
+              <h2 className="text-base sm:text-xl font-semibold">Success Criteria Assessment</h2>
+              <p className="text-xs sm:text-sm text-slate-400">Based on the data, determine if each criteria was met</p>
             </div>
           </div>
 
@@ -1929,13 +1929,13 @@ const Level4 = ({ onNavigateToLevel }) => {
               return (
                 <div
                   key={criteria.id}
-                  className={`p-4 rounded-lg border ${
+                  className={`p-3 sm:p-4 rounded-lg border ${
                     assessment
                       ? 'border-cyan-600 bg-cyan-900/20'
                       : 'border-slate-600 bg-slate-900/50'
                   }`}
                 >
-                  <div className="flex items-start gap-3 mb-3">
+                  <div className="flex items-start gap-2 sm:gap-3 mb-3">
                     <span className="text-cyan-400 font-mono">{index + 1}.</span>
                     <div className="flex-1">
                       <p className="text-sm text-slate-300">{criteria.text}</p>
@@ -1973,12 +1973,12 @@ const Level4 = ({ onNavigateToLevel }) => {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2 ml-6">
+                  <div className="flex flex-wrap gap-2 ml-4 sm:ml-6">
                     {['yes', 'no', 'insufficient'].map(option => (
                       <button
                         key={option}
                         onClick={() => handleAssessmentChange(criteria.id, option)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
                           assessment === option
                             ? option === 'yes'
                               ? 'bg-green-600 text-white'
@@ -2014,11 +2014,11 @@ const Level4 = ({ onNavigateToLevel }) => {
         )}
 
         {/* Submit Button */}
-        <div className="text-center">
+        <div className="text-center pb-16 sm:pb-8">
           <button
             onClick={handleSubmit}
             disabled={!allCriteriaAssessed || !allAgreed}
-            className="flex items-center gap-2 mx-auto bg-green-600 hover:bg-green-500 disabled:bg-slate-600 disabled:cursor-not-allowed px-8 py-3 rounded-lg font-semibold text-lg transition-colors"
+            className="flex items-center gap-2 mx-auto bg-green-600 hover:bg-green-500 disabled:bg-slate-600 disabled:cursor-not-allowed px-6 sm:px-8 py-3 rounded-lg font-semibold text-base sm:text-lg transition-colors"
           >
             <Send className="w-5 h-5" />
             Submit Final Assessment

@@ -23,16 +23,14 @@ const ExportPanel = ({ allGames, leaderboard }) => {
     const headers = [
       'Team Name', 'Game Code', 'Current Level', 'Total Score', 'Players',
       'L1 Score', 'L1 Criteria Count', 'L1 Missing Roles', 'L1 Completed',
-      'L2 Score', 'L2 Tasks Completed', 'L2 Penalties', 'L2 Completed',
+      'L2 Score', 'L2 Completed',
       'L3 Score', 'L3 Completed',
-      'L4 Score', 'L4 Completed',
       'Badges',
     ];
     const rows = teams.map(team => {
       const l1 = team.level1 || {};
       const l2 = team.level2 || {};
       const l3 = team.level3 || {};
-      const l4 = team.level4 || {};
       return [
         team.meta?.teamName,
         team.gameCode,
@@ -44,13 +42,9 @@ const ExportPanel = ({ allGames, leaderboard }) => {
         (l1.missingRoles || []).join('; '),
         l1.completedAt ? 'Yes' : 'No',
         l2.score || 0,
-        (l2.completedTasks || []).length,
-        l2.penalties || 0,
         l2.completedAt ? 'Yes' : 'No',
         l3.score || 0,
         l3.completedAt ? 'Yes' : 'No',
-        l4.score || 0,
-        l4.completedAt ? 'Yes' : 'No',
         (team.badges || []).join('; '),
       ];
     });
@@ -72,9 +66,8 @@ const ExportPanel = ({ allGames, leaderboard }) => {
         badges: team.badges || [],
         levels: {
           level1: { score: team.level1?.score || 0, criteria: (team.level1?.selectedCriteria || []).length, completed: !!team.level1?.completedAt },
-          level2: { score: team.level2?.score || 0, tasks: (team.level2?.completedTasks || []).length, penalties: team.level2?.penalties || 0, completed: !!team.level2?.completedAt },
+          level2: { score: team.level2?.score || 0, completed: !!team.level2?.completedAt },
           level3: { score: team.level3?.score || 0, completed: !!team.level3?.completedAt },
-          level4: { score: team.level4?.score || 0, completed: !!team.level4?.completedAt },
         },
       })),
     };
@@ -94,7 +87,7 @@ const ExportPanel = ({ allGames, leaderboard }) => {
       <tr>
         <td style="padding:8px;border-bottom:1px solid #ddd;font-weight:${i < 3 ? 'bold' : 'normal'};">${i + 1}</td>
         <td style="padding:8px;border-bottom:1px solid #ddd;">${team.teamName}</td>
-        <td style="padding:8px;border-bottom:1px solid #ddd;text-align:center;">${team.currentLevel}/4</td>
+        <td style="padding:8px;border-bottom:1px solid #ddd;text-align:center;">${team.currentLevel}/3</td>
         <td style="padding:8px;border-bottom:1px solid #ddd;text-align:right;font-weight:bold;">${team.score}</td>
       </tr>
     `).join('');
@@ -113,7 +106,7 @@ const ExportPanel = ({ allGames, leaderboard }) => {
               <div style="color:#666;">Total Teams</div>
             </div>
             <div style="text-align:center;">
-              <div style="font-size:32px;font-weight:bold;">${teams.filter(t => (t.badges?.length || 0) === 4).length}</div>
+              <div style="font-size:32px;font-weight:bold;">${teams.filter(t => (t.badges?.length || 0) === 3).length}</div>
               <div style="color:#666;">Completed</div>
             </div>
             <div style="text-align:center;">

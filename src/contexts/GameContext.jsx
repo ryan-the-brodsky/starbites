@@ -39,14 +39,14 @@ const generatePlayerId = () => {
 const FUNCTIONAL_ROLES = ['productDev', 'packageDev', 'quality', 'pim'];
 
 // Initial game state structure
-// 4 levels: Success Criteria, Pretrial Checklist, Sampling Plan, Mission Report
+// 3 levels: Success Criteria, Sampling Plan, Mission Report
 export const createInitialGameState = (teamId, teamName) => ({
   gameCode: teamId,
   teamId,
   meta: {
     teamName,
     createdAt: Date.now(),
-    currentLevel: 0, // 0 = not started (show level select), 1-4 = active level
+    currentLevel: 0, // 0 = not started (show level select), 1-3 = active level
     highestUnlockedLevel: 1,
     totalScore: 0,
     isPaused: false,
@@ -55,8 +55,6 @@ export const createInitialGameState = (teamId, teamName) => ({
   },
   level1: {
     // Each role has their own criteria selections and consensus tracking
-    // playerSelections tracks each player's individual selections in real-time
-    // confirmedSelections stores the final agreed-upon criteria once all players confirm
     roleSelections: {
       productDev: { playerSelections: {}, confirmedSelections: null, confirmedBy: [] },
       packageDev: { playerSelections: {}, confirmedSelections: null, confirmedBy: [] },
@@ -68,24 +66,11 @@ export const createInitialGameState = (teamId, teamName) => ({
     completedAt: null,
   },
   level2: {
-    currentPhase: 1,
-    currentTaskIndex: 0,
-    completedTasks: [],
-    score: 0,
-    penalties: 0,
-    startedAt: null,
-    completedAt: null,
-    readyPlayers: [], // Players who have clicked "Proceed to Pretrial"
-    levelStarted: false, // Commander must start after all are ready
-    taskAssignments: {}, // Maps taskId -> [playerIds] who can complete it
-    taskCompletions: {}, // Maps taskId -> [playerIds] who have completed their part
-  },
-  level3: {
     samplingPlan: null,
     score: 0,
     completedAt: null,
   },
-  level4: {
+  level3: {
     report: { summary: '', findings: '', recommendations: '' },
     score: 0,
     completedAt: null,
@@ -403,58 +388,12 @@ export const GameProvider = ({ children }) => {
     });
   }, [useFirebase, persistGameLocal]);
 
-  // Complete a task in Level 2 (Pretrial Checklist)
-  const completeTask = useCallback((taskId, points) => {
-    lastLocalWriteRef.current = Date.now();
-    setGameState(prev => {
-      if (!prev) return prev;
-      const level2 = prev.level2 || { completedTasks: [], score: 0, currentTaskIndex: 0 };
-      const newCompletedTasks = [...(level2.completedTasks || []), taskId];
-      const newScore = (level2.score || 0) + points;
-      const newTotalScore = (prev.meta?.totalScore || 0) + points;
-
-      const newState = {
-        ...prev,
-        meta: { ...prev.meta, totalScore: newTotalScore },
-        level2: {
-          ...level2,
-          completedTasks: newCompletedTasks,
-          score: newScore,
-          currentTaskIndex: (level2.currentTaskIndex || 0) + 1,
-        },
-      };
-      persistGame(newState);
-      return newState;
-    });
-  }, [persistGame]);
-
-  // Apply penalty for Level 2
-  const applyPenalty = useCallback((amount) => {
-    lastLocalWriteRef.current = Date.now();
-    setGameState(prev => {
-      if (!prev) return prev;
-      const level2 = prev.level2 || { score: 0, penalties: 0 };
-      const newState = {
-        ...prev,
-        meta: { ...prev.meta, totalScore: Math.max(0, (prev.meta?.totalScore || 0) - amount) },
-        level2: {
-          ...level2,
-          score: Math.max(0, (level2.score || 0) - amount),
-          penalties: (level2.penalties || 0) + 1,
-        },
-      };
-      persistGame(newState);
-      return newState;
-    });
-  }, [persistGame]);
-
-  // Complete a level (4 levels total)
+  // Complete a level (3 levels total)
   const completeLevel = useCallback((levelNum) => {
     const badges = {
       1: 'criteria-master',
-      2: 'launch-engineer',
-      3: 'sampling-specialist',
-      4: 'mission-commander',
+      2: 'sampling-specialist',
+      3: 'mission-commander',
     };
 
     lastLocalWriteRef.current = Date.now();
@@ -465,7 +404,7 @@ export const GameProvider = ({ children }) => {
         ? currentBadges
         : [...currentBadges, badges[levelNum]];
 
-      const nextLevel = Math.min(levelNum + 1, 4);
+      const nextLevel = Math.min(levelNum + 1, 3);
       const newState = {
         ...prev,
         meta: {
@@ -682,134 +621,6 @@ export const GameProvider = ({ children }) => {
     return true;
   }, [playerId, gameState, useFirebase, persistGameLocal]);
 
-  // Mark player as ready for Level 2 (Pretrial Checklist)
-  const markReadyForPretrial = useCallback(() => {
-    if (!playerId || !gameState) return;
-
-    lastLocalWriteRef.current = Date.now();
-    setGameState(prev => {
-      if (!prev) return prev;
-
-      const readyPlayers = prev.level2?.readyPlayers || [];
-      if (readyPlayers.includes(playerId)) return prev; // Already ready
-
-      const newReadyPlayers = [...readyPlayers, playerId];
-
-      const newState = {
-        ...prev,
-        level2: {
-          ...prev.level2,
-          readyPlayers: newReadyPlayers,
-        },
-      };
-
-      if (useFirebase && prev.gameCode) {
-        updateLevelInDB(prev.gameCode, 2, { readyPlayers: newReadyPlayers }).catch(err => handleFirebaseError(err));
-      } else {
-        persistGameLocal(newState);
-      }
-
-      return newState;
-    });
-  }, [playerId, gameState, useFirebase, persistGameLocal]);
-
-  // Assign tasks to players (Commander calls this when starting)
-  const assignTasksToPlayers = useCallback((allTasks) => {
-    if (!gameState) return {};
-
-    const players = Object.keys(gameState.players || {}).filter(
-      pid => gameState.players[pid].role === 'crew'
-    );
-
-    if (players.length === 0) return {};
-
-    const MIN_TASKS_PER_PLAYER = 3;
-    const taskAssignments = {};
-    const taskCompletions = {};
-
-    // Calculate how many players need each task
-    // If more players than tasks/MIN_TASKS, some tasks need multiple players
-    const totalMinTasks = players.length * MIN_TASKS_PER_PLAYER;
-    const duplicationsNeeded = Math.max(0, totalMinTasks - allTasks.length);
-
-    // Distribute tasks evenly with duplications
-    allTasks.forEach((task, idx) => {
-      // Determine how many players need this task
-      const basePlayers = Math.ceil(players.length / Math.max(1, Math.ceil(allTasks.length / MIN_TASKS_PER_PLAYER)));
-      const playersForTask = Math.max(1, basePlayers);
-
-      // Assign players to this task in round-robin fashion
-      const assignedPlayers = [];
-      for (let i = 0; i < playersForTask && assignedPlayers.length < players.length; i++) {
-        const playerIdx = (idx + i) % players.length;
-        if (!assignedPlayers.includes(players[playerIdx])) {
-          assignedPlayers.push(players[playerIdx]);
-        }
-      }
-
-      taskAssignments[task.id] = assignedPlayers;
-      taskCompletions[task.id] = [];
-    });
-
-    // Ensure every player has at least MIN_TASKS_PER_PLAYER tasks
-    players.forEach(pid => {
-      let playerTasks = Object.entries(taskAssignments)
-        .filter(([_, pids]) => pids.includes(pid))
-        .map(([tid]) => tid);
-
-      while (playerTasks.length < MIN_TASKS_PER_PLAYER) {
-        // Find task with fewest assignees that this player doesn't have
-        const availableTasks = Object.entries(taskAssignments)
-          .filter(([tid, pids]) => !pids.includes(pid))
-          .sort((a, b) => a[1].length - b[1].length);
-
-        if (availableTasks.length === 0) break;
-
-        const [taskId, currentPlayers] = availableTasks[0];
-        taskAssignments[taskId] = [...currentPlayers, pid];
-        playerTasks.push(taskId);
-      }
-    });
-
-    return { taskAssignments, taskCompletions };
-  }, [gameState]);
-
-  // Start pretrial checklist with task assignments
-  const startPretrialChecklist = useCallback((allTasks) => {
-    if (!gameState || role !== 'commander') return;
-
-    const { taskAssignments, taskCompletions } = assignTasksToPlayers(allTasks);
-
-    lastLocalWriteRef.current = Date.now();
-    setGameState(prev => {
-      if (!prev) return prev;
-
-      const newState = {
-        ...prev,
-        level2: {
-          ...prev.level2,
-          levelStarted: true,
-          startedAt: Date.now(),
-          taskAssignments,
-          taskCompletions,
-        },
-      };
-
-      if (useFirebase && prev.gameCode) {
-        updateLevelInDB(prev.gameCode, 2, {
-          levelStarted: true,
-          startedAt: Date.now(),
-          taskAssignments,
-          taskCompletions,
-        }).catch(err => handleFirebaseError(err));
-      } else {
-        persistGameLocal(newState);
-      }
-
-      return newState;
-    });
-  }, [gameState, role, assignTasksToPlayers, useFirebase, persistGameLocal]);
-
   // Leave current game
   const leaveGame = useCallback(() => {
     // Unsubscribe from real-time updates
@@ -843,8 +654,6 @@ export const GameProvider = ({ children }) => {
     leaveGame,
     updateGameState,
     updateLevelState,
-    completeTask,
-    applyPenalty,
     completeLevel,
     navigateToLevel,
     updatePlayerRole,
@@ -852,8 +661,6 @@ export const GameProvider = ({ children }) => {
     getPlayersByRole,
     updatePlayerCriteriaSelections,
     confirmCriteriaSelection,
-    markReadyForPretrial,
-    startPretrialChecklist,
     isInGame: !!gameState,
     isCommander: role === 'commander',
     isCrew: role === 'crew',

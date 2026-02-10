@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   Shield, Users, Trophy, Play, Pause, RefreshCw, Download,
   RotateCcw, Clock, Activity, ChevronDown, ChevronUp, AlertTriangle,
-  Monitor, Timer, FastForward, Plus
+  Monitor, Timer, FastForward, Plus, Trash2
 } from 'lucide-react';
 import { useAdmin } from '../contexts/AdminContext';
 import ProjectorView from '../components/admin/ProjectorView';
@@ -14,7 +14,7 @@ const Admin = () => {
   const {
     allGames, leaderboard, useFirebase,
     toggleGlobalPause, resetTeamProgress, restoreTeam,
-    advanceAllTeams, setGlobalTimer
+    deleteAllTeams, advanceAllTeams, setGlobalTimer
   } = useAdmin();
 
   const [expandedTeam, setExpandedTeam] = useState(null);
@@ -24,6 +24,7 @@ const Admin = () => {
   const [showProjector, setShowProjector] = useState(false);
   const [showBatchCreate, setShowBatchCreate] = useState(false);
   const [timerLevel, setTimerLevel] = useState(null); // Active timer level
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
 
   const teams = useMemo(() => Object.values(allGames), [allGames]);
 
@@ -103,6 +104,11 @@ const Admin = () => {
     await advanceAllTeams(targetLevel);
   };
 
+  const handleDeleteAllTeams = async () => {
+    await deleteAllTeams();
+    setShowDeleteAllConfirm(false);
+  };
+
   const getStatusColor = (team) => {
     const players = Object.values(team.players || {});
     if (players.length === 0) return 'bg-slate-500';
@@ -175,7 +181,7 @@ const Admin = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <StatCard icon={Users} label="Total Teams" value={teams.length} color="text-cyan-400" />
           <StatCard icon={Activity} label="Active Now" value={activeTeamsCount} color="text-green-400" />
-          <StatCard icon={Trophy} label="Completed" value={teams.filter(t => (t.badges?.length || 0) === 4).length} color="text-amber-400" />
+          <StatCard icon={Trophy} label="Completed" value={teams.filter(t => (t.badges?.length || 0) === 3).length} color="text-amber-400" />
           <StatCard icon={Clock} label="Average Score" value={averageScore} color="text-purple-400" />
         </div>
 
@@ -286,13 +292,44 @@ const Admin = () => {
             </button>
           </div>
         ) : (
-          <button
-            onClick={() => setShowBatchCreate(true)}
-            className="flex items-center gap-2 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700 px-4 py-2 rounded-lg text-sm text-slate-400 mb-6 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Batch Create Teams
-          </button>
+          <div className="flex items-center gap-3 mb-6">
+            <button
+              onClick={() => setShowBatchCreate(true)}
+              className="flex items-center gap-2 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700 px-4 py-2 rounded-lg text-sm text-slate-400 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Batch Create Teams
+            </button>
+
+            {teams.length > 0 && !showDeleteAllConfirm && (
+              <button
+                onClick={() => setShowDeleteAllConfirm(true)}
+                className="flex items-center gap-2 bg-red-900/30 hover:bg-red-900/50 border border-red-700 px-4 py-2 rounded-lg text-sm text-red-400 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete All Teams
+              </button>
+            )}
+
+            {showDeleteAllConfirm && (
+              <div className="flex items-center gap-2 bg-red-900/50 border border-red-500 rounded-lg px-4 py-2">
+                <AlertTriangle className="w-4 h-4 text-red-400" />
+                <span className="text-sm text-red-300">Delete all {teams.length} teams?</span>
+                <button
+                  onClick={handleDeleteAllTeams}
+                  className="bg-red-600 hover:bg-red-500 px-3 py-1 rounded text-sm font-medium"
+                >
+                  Yes, Delete All
+                </button>
+                <button
+                  onClick={() => setShowDeleteAllConfirm(false)}
+                  className="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Teams Table */}
@@ -323,7 +360,7 @@ const Admin = () => {
                     </div>
                     <div className="text-center">
                       <div className="text-sm text-slate-500">Level</div>
-                      <div className="font-bold text-purple-400">{team.meta?.currentLevel || 0}/4</div>
+                      <div className="font-bold text-purple-400">{team.meta?.currentLevel || 0}/3</div>
                     </div>
                     <div className="text-center">
                       <div className="text-sm text-slate-500">Score</div>

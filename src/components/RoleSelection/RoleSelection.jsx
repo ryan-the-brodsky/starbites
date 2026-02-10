@@ -118,9 +118,9 @@ const RoleSelection = () => {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-cyan-400 mb-3">Choose Your Adventure</h1>
+          <h1 className="text-4xl font-bold text-cyan-400 mb-3">Select Your Role</h1>
           <p className="text-slate-300 text-lg max-w-2xl mx-auto">
-            Balanced teams with diverse perspectives help us all win together.
+            Each role represents a function in the plant trial. Pick the one you'll represent during this simulation.
           </p>
           <p className="text-sm text-slate-500 mt-4">
             Team: <span className="text-cyan-300">{gameState?.meta?.teamName}</span>
@@ -260,8 +260,10 @@ const RoleSelection = () => {
               </div>
               <p className="text-sm text-slate-400 mt-2">
                 {allPlayersReady
-                  ? 'All players ready! Waiting for Commander to start...'
-                  : `Waiting for other players... (${playersWithRoles}/${totalPlayers} ready)`}
+                  ? isCommander
+                    ? 'All players ready! You can now start the mission below.'
+                    : 'All players ready! Waiting for Commander to start the mission...'
+                  : `Waiting for all players to select a role... (${playersWithRoles}/${totalPlayers} ready)`}
               </p>
             </div>
           </div>
@@ -270,18 +272,43 @@ const RoleSelection = () => {
         {/* Commander Start Button */}
         {isCommander && isConfirmed && (
           <div className="text-center">
+            {!allPlayersReady ? (
+              <div className="bg-amber-900/20 border border-amber-500/50 rounded-xl p-4 mb-4 max-w-md mx-auto">
+                <div className="flex items-center justify-center gap-2 text-amber-400 mb-2">
+                  <Users className="w-5 h-5" />
+                  <span className="font-bold">Waiting for your crew</span>
+                </div>
+                <p className="text-sm text-amber-300/80">
+                  {playersByRole.unassigned?.length || 0} player{(playersByRole.unassigned?.length || 0) !== 1 ? 's' : ''} still
+                  {' '}selecting a role. Once everyone has confirmed, you'll be able to start the mission.
+                </p>
+                <div className="mt-3 text-xs text-slate-400">
+                  {playersWithRoles} of {totalPlayers} players ready
+                </div>
+              </div>
+            ) : (
+              <div className="bg-green-900/20 border border-green-500/50 rounded-xl p-4 mb-4 max-w-md mx-auto">
+                <div className="flex items-center justify-center gap-2 text-green-400 mb-1">
+                  <CheckCircle2 className="w-5 h-5" />
+                  <span className="font-bold">All {totalPlayers} player{totalPlayers !== 1 ? 's' : ''} ready!</span>
+                </div>
+                <p className="text-sm text-green-300/80">
+                  As Commander, hit the button below to begin the mission.
+                </p>
+              </div>
+            )}
             <button
               onClick={handleStartGame}
-              className="px-10 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 rounded-xl font-bold text-xl transition-all hover:scale-105 flex items-center gap-3 mx-auto"
+              disabled={!allPlayersReady}
+              className={`px-10 py-4 rounded-xl font-bold text-xl transition-all flex items-center gap-3 mx-auto ${
+                allPlayersReady
+                  ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 hover:scale-105'
+                  : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+              }`}
             >
               <Rocket className="w-6 h-6" />
               Start Mission
             </button>
-            <p className="text-xs text-slate-500 mt-3">
-              {allPlayersReady
-                ? 'All players have selected their roles!'
-                : `${playersByRole.unassigned?.length || 0} player(s) still choosing...`}
-            </p>
           </div>
         )}
 

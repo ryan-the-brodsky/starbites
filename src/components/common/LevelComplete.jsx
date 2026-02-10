@@ -1,24 +1,16 @@
 import React from 'react';
-import { CheckCircle2, ChevronRight, Target, Rocket, FlaskConical, FileText, Clock, Users } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Target, FlaskConical, FileText, Clock, Users } from 'lucide-react';
 
 const levelConfig = {
   1: {
     name: 'Success Criteria',
-    nextName: 'Pretrial Checklist',
+    nextName: 'Sampling Plan',
     badge: { name: 'Criteria Master', emoji: '🎯' },
     icon: Target,
     color: 'cyan',
     trainingMessage: 'Before moving on, discuss with your team: What makes these success criteria most important for the trial?',
   },
   2: {
-    name: 'Pretrial Checklist',
-    nextName: 'Sampling Plan',
-    badge: { name: 'Launch Engineer', emoji: '🚀' },
-    icon: Rocket,
-    color: 'orange',
-    trainingMessage: 'Take a moment to reflect: How did your team coordination work? What communication strategies helped?',
-  },
-  3: {
     name: 'Sampling Plan',
     nextName: 'Mission Report',
     badge: { name: 'Sampling Specialist', emoji: '🧪' },
@@ -26,7 +18,7 @@ const levelConfig = {
     color: 'green',
     trainingMessage: 'Discuss with your team: How did you prioritize which tests to run? What tradeoffs did you make with your sample budget?',
   },
-  4: {
+  3: {
     name: 'Mission Report',
     nextName: null,
     badge: { name: 'Mission Commander', emoji: '🎖️' },
@@ -93,7 +85,7 @@ const LevelComplete = ({ level, score, onContinue, customMessage }) => {
             </div>
           </div>
 
-          {level < 4 ? (
+          {level < 3 ? (
             <button
               onClick={onContinue}
               className={`w-full ${colors.button} py-4 rounded-xl font-semibold text-lg transition-all hover:scale-105 flex items-center justify-center gap-3 shadow-lg`}

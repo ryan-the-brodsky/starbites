@@ -75,7 +75,7 @@ const Level2 = ({ onNavigateToLevel }) => {
   // Synced via Firebase so all crew members see the same plan
   const [samplingPlan, setSamplingPlan] = useState(() => {
     // Initialize from Firebase/gameState if available
-    return gameState?.level3?.samplingPlan || {};
+    return gameState?.level2?.samplingPlan || {};
   });
   const [selectedStep, setSelectedStep] = useState(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -83,15 +83,15 @@ const Level2 = ({ onNavigateToLevel }) => {
 
   // Sync sampling plan FROM Firebase (other players' changes)
   useEffect(() => {
-    const firebasePlan = gameState?.level3?.samplingPlan;
+    const firebasePlan = gameState?.level2?.samplingPlan;
     if (firebasePlan && JSON.stringify(firebasePlan) !== JSON.stringify(samplingPlan)) {
       setSamplingPlan(firebasePlan);
     }
-  }, [gameState?.level3?.samplingPlan]);
+  }, [gameState?.level2?.samplingPlan]);
 
   // Sync sampling plan TO Firebase whenever it changes locally
   const syncPlanToFirebase = useCallback((newPlan) => {
-    updateLevelState('level3', {
+    updateLevelState('level2', {
       samplingPlan: newPlan,
     });
   }, [updateLevelState]);
@@ -368,22 +368,22 @@ const Level2 = ({ onNavigateToLevel }) => {
   };
 
   const handleSubmit = () => {
-    updateLevelState('level3', {
+    updateLevelState('level2', {
       samplingPlan,
       samplesUsed,
       criteriaCoverage: coverage,
       completedAt: Date.now(),
     });
     setIsSubmitted(true);
-    setTimeout(() => completeLevel(3), 2500);
+    setTimeout(() => completeLevel(2), 2500);
   };
 
   if (isSubmitted) {
     return (
       <LevelComplete
-        level={3}
+        level={2}
         score={samplesUsed}
-        onContinue={() => onNavigateToLevel && onNavigateToLevel(4)}
+        onContinue={() => onNavigateToLevel && onNavigateToLevel(3)}
         customMessage={`Your sampling plan covers ${coverage.covered} of ${coverage.total} success criteria. Samples used: ${samplesUsed}/${MAX_SAMPLES}. Discuss with your team: How did you prioritize which tests to run? What tradeoffs did you make with your sample budget?`}
       />
     );
@@ -394,16 +394,16 @@ const Level2 = ({ onNavigateToLevel }) => {
     : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 text-white p-4">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 text-white p-3 sm:p-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-cyan-400 mb-2">Level 3: Sampling Plan</h1>
-          <p className="text-slate-400">Design your sampling strategy to verify your success criteria</p>
+        <div className="text-center mb-4 sm:mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-cyan-400 mb-1 sm:mb-2">Level 2: Sampling Plan</h1>
+          <p className="text-sm sm:text-base text-slate-400">Design your sampling strategy to verify your success criteria</p>
         </div>
 
         {/* Success Criteria Reminder */}
-        <div className="bg-gradient-to-r from-cyan-900/30 to-blue-900/30 rounded-xl p-4 border border-cyan-700/50 mb-6">
+        <div className="bg-gradient-to-r from-cyan-900/30 to-blue-900/30 rounded-xl p-3 sm:p-4 border border-cyan-700/50 mb-4 sm:mb-6">
           <div className="flex items-start gap-3">
             <Target className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
@@ -442,7 +442,7 @@ const Level2 = ({ onNavigateToLevel }) => {
         </div>
 
         {/* Sample Budget */}
-        <div className={`rounded-xl p-4 border mb-6 ${
+        <div className={`rounded-xl p-3 sm:p-4 border mb-4 sm:mb-6 ${
           samplesRemaining === 0
             ? 'bg-red-900/30 border-red-500'
             : samplesRemaining <= 5
@@ -460,12 +460,12 @@ const Level2 = ({ onNavigateToLevel }) => {
               </div>
             </div>
             <div className="text-right">
-              <div className={`text-3xl font-bold ${
+              <div className={`text-2xl sm:text-3xl font-bold ${
                 samplesRemaining === 0 ? 'text-red-400' : samplesRemaining <= 5 ? 'text-amber-400' : 'text-cyan-400'
               }`}>
                 {samplesUsed} / {MAX_SAMPLES}
               </div>
-              <div className="text-sm text-slate-500">samples used</div>
+              <div className="text-xs sm:text-sm text-slate-500">samples used</div>
             </div>
           </div>
           <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700/50">
@@ -476,13 +476,13 @@ const Level2 = ({ onNavigateToLevel }) => {
         </div>
 
         {/* Process Flow Visualization */}
-        <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700 mb-6">
-          <h2 className="text-xl font-semibold mb-6 text-center">Joy Bites Production Process</h2>
+        <div className="bg-slate-800/50 rounded-xl p-3 sm:p-6 border border-slate-700 mb-6">
+          <h2 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6 text-center">Joy Bites Production Process</h2>
 
           {/* Process Flow - Two rows */}
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-x-auto pb-2">
             {/* Top row: steps 1-4 */}
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-center gap-1 sm:gap-2 min-w-fit mx-auto">
               {processSteps.slice(0, 4).map((step, index) => {
                 const Icon = step.icon;
                 const sampleCount = getStepSampleCount(step.id);
@@ -493,7 +493,7 @@ const Level2 = ({ onNavigateToLevel }) => {
                   <React.Fragment key={step.id}>
                     <button
                       onClick={() => setSelectedStep(step.id)}
-                      className={`relative flex flex-col items-center p-4 rounded-xl border-2 transition-all hover:scale-105 min-w-[100px] ${
+                      className={`relative flex flex-col items-center p-2 sm:p-4 rounded-xl border-2 transition-all hover:scale-105 min-w-[80px] sm:min-w-[100px] ${
                         selectedStep === step.id
                           ? 'border-cyan-400 bg-cyan-900/40 shadow-lg shadow-cyan-500/20'
                           : isConfigured
@@ -574,7 +574,7 @@ const Level2 = ({ onNavigateToLevel }) => {
             </div>
 
             {/* Bottom row: steps 5-8 (reversed for flow) */}
-            <div className="flex items-center justify-center gap-2 flex-row-reverse">
+            <div className="flex items-center justify-center gap-1 sm:gap-2 flex-row-reverse min-w-fit mx-auto">
               {processSteps.slice(4, 8).map((step, index) => {
                 const Icon = step.icon;
                 const sampleCount = getStepSampleCount(step.id);
@@ -585,7 +585,7 @@ const Level2 = ({ onNavigateToLevel }) => {
                   <React.Fragment key={step.id}>
                     <button
                       onClick={() => setSelectedStep(step.id)}
-                      className={`relative flex flex-col items-center p-4 rounded-xl border-2 transition-all hover:scale-105 min-w-[100px] ${
+                      className={`relative flex flex-col items-center p-2 sm:p-4 rounded-xl border-2 transition-all hover:scale-105 min-w-[80px] sm:min-w-[100px] ${
                         selectedStep === step.id
                           ? 'border-cyan-400 bg-cyan-900/40 shadow-lg shadow-cyan-500/20'
                           : isConfigured
@@ -787,7 +787,7 @@ const Level2 = ({ onNavigateToLevel }) => {
                           </div>
                         </th>
                         {timePoints.map(tp => (
-                          <th key={tp.id} className="text-center py-3 px-2 min-w-[120px]">
+                          <th key={tp.id} className="text-center py-3 px-2 min-w-[90px] sm:min-w-[120px]">
                             <div className="flex flex-col items-center">
                               <Clock className="w-4 h-4 text-purple-400 mb-1" />
                               <span className="font-medium text-slate-300">{tp.name}</span>
@@ -967,11 +967,11 @@ const Level2 = ({ onNavigateToLevel }) => {
         )}
 
         {/* Submit Button */}
-        <div className="text-center">
+        <div className="text-center pb-16 sm:pb-8">
           <button
             onClick={handleSubmit}
             disabled={!canSubmit()}
-            className="bg-green-600 hover:bg-green-500 disabled:bg-slate-600 disabled:cursor-not-allowed px-8 py-3 rounded-lg font-semibold text-lg transition-colors"
+            className="bg-green-600 hover:bg-green-500 disabled:bg-slate-600 disabled:cursor-not-allowed px-6 sm:px-8 py-3 rounded-lg font-semibold text-base sm:text-lg transition-colors"
           >
             Submit Sampling Plan
           </button>
