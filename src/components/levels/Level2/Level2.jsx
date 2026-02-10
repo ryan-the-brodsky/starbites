@@ -1,67 +1,11 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { CheckCircle2, FlaskConical, Clock, AlertTriangle, X, ArrowRight, Package, Shuffle, Droplets, Flame, Scale, Snowflake, Box, ClipboardCheck, Target, Info, Plus, Minus, MessageCircle, TestTube } from 'lucide-react';
+import { CheckCircle2, FlaskConical, Clock, AlertTriangle, X, ArrowRight, ArrowDown, Target, Info, Plus, Minus, MessageCircle, TestTube } from 'lucide-react';
 import { useGame } from '../../../contexts/GameContext';
 import { operatorQuestions } from '../../../data/missionData';
+import { processSteps, testOptions, timePoints, alternateValidationPaths } from '../../../data/processDefinitions';
 import LevelComplete from '../../common/LevelComplete';
 
-// Joy Bites Process Flow Steps with icons and available tests
-const processSteps = [
-  { id: 'receiving', name: 'Raw Materials', description: 'Receiving & inspection', icon: Package, availableTests: ['temp', 'moisture', 'visual'] },
-  { id: 'blending', name: 'Dry Blending', description: 'Ingredient mixing', icon: Shuffle, availableTests: ['moisture', 'particle', 'weight'] },
-  { id: 'mixing', name: 'Hydration', description: 'Water & mixing', icon: Droplets, availableTests: ['temp', 'viscosity', 'moisture'] },
-  { id: 'gelling', name: 'Heating/Gelling', description: 'Thermal processing', icon: Flame, availableTests: ['temp', 'gel', 'viscosity'] },
-  { id: 'portioning', name: 'Portioning', description: 'Size & weight', icon: Scale, availableTests: ['weight', 'dimensions', 'visual'] },
-  { id: 'cooling', name: 'Cooling', description: 'Set & stabilize', icon: Snowflake, availableTests: ['temp', 'texture', 'moisture'] },
-  { id: 'packaging', name: 'Packaging', description: 'Seal & label', icon: Box, availableTests: ['seal', 'visual', 'weight', 'dimensions'] },
-  { id: 'release', name: 'QC Release', description: 'Final checks', icon: ClipboardCheck, availableTests: ['micro', 'sensory', 'visual'] },
-];
-
-const testOptions = {
-  temp: { name: 'Temperature', description: 'Process temperature monitoring' },
-  moisture: { name: 'Moisture', description: 'Water content analysis' },
-  weight: { name: 'Weight', description: 'Mass measurement' },
-  viscosity: { name: 'Viscosity', description: 'Flow characteristics' },
-  gel: { name: 'Gel Strength', description: 'Gel set time and firmness' },
-  micro: { name: 'Microbial', description: 'Microbiological testing' },
-  seal: { name: 'Seal Integrity', description: 'Package seal testing' },
-  sensory: { name: 'Sensory', description: 'Taste/texture evaluation' },
-  particle: { name: 'Particle Size', description: 'Particle distribution' },
-  texture: { name: 'Texture', description: 'Mechanical texture analysis' },
-  dimensions: { name: 'Dimensions', description: 'Physical measurements' },
-  visual: { name: 'Visual', description: 'Visual inspection' },
-};
-
-const timePoints = [
-  { id: 'beginning', name: 'Beginning', description: 'First 30 mins of production' },
-  { id: 'middle', name: 'Middle', description: 'Mid-point of production' },
-  { id: 'end', name: 'End', description: 'Final 30 mins of production' },
-];
-
 const MAX_SAMPLES = 300;
-
-// Alternate validation paths for criteria that can't be fully addressed in the main process flow
-// These appear as dotted-line branches off the main flow
-const alternateValidationPaths = [
-  {
-    id: 'operator-conversation',
-    name: 'Operator Conversation',
-    description: 'Ask questions to plant operators about the trial run',
-    icon: MessageCircle,
-    connectsAfter: 'gelling', // Appears as a branch after this step
-    availableTests: [], // Uses question-based UI instead of test/timepoint grid
-    isAlternate: true,
-    isConversational: true,
-  },
-  {
-    id: 'shelf-life-validation',
-    name: 'Shelf Life Validation',
-    description: 'Accelerated shelf life study',
-    icon: TestTube,
-    connectsAfter: 'release', // Appears as a branch after QC Release
-    availableTests: ['moisture', 'visual', 'sensory', 'micro'],
-    isAlternate: true,
-  },
-];
 
 // Steps where the 30-sample minimum for statistical validity applies
 // Only packaging and post-packaging steps require n>=30
@@ -479,10 +423,11 @@ const Level2 = ({ onNavigateToLevel }) => {
         <div className="bg-slate-800/50 rounded-xl p-3 sm:p-6 border border-slate-700 mb-6">
           <h2 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6 text-center">Joy Bites Production Process</h2>
 
-          {/* Process Flow - Two rows */}
-          <div className="space-y-4 overflow-x-auto pb-2">
+          {/* Process Flow - Responsive: 2x2 grid on mobile, horizontal rows on desktop */}
+          <div className="space-y-3 sm:space-y-4">
             {/* Top row: steps 1-4 */}
-            <div className="flex items-center justify-center gap-1 sm:gap-2 min-w-fit mx-auto">
+            {/* Mobile: 2x2 grid, Desktop: horizontal flex */}
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:justify-center sm:gap-2">
               {processSteps.slice(0, 4).map((step, index) => {
                 const Icon = step.icon;
                 const sampleCount = getStepSampleCount(step.id);
@@ -493,7 +438,7 @@ const Level2 = ({ onNavigateToLevel }) => {
                   <React.Fragment key={step.id}>
                     <button
                       onClick={() => setSelectedStep(step.id)}
-                      className={`relative flex flex-col items-center p-2 sm:p-4 rounded-xl border-2 transition-all hover:scale-105 min-w-[80px] sm:min-w-[100px] ${
+                      className={`relative flex flex-col items-center p-2 sm:p-4 rounded-xl border-2 transition-all hover:scale-105 sm:min-w-[100px] ${
                         selectedStep === step.id
                           ? 'border-cyan-400 bg-cyan-900/40 shadow-lg shadow-cyan-500/20'
                           : isConfigured
@@ -523,21 +468,31 @@ const Level2 = ({ onNavigateToLevel }) => {
                       <span className="text-xs font-medium text-center">{step.name}</span>
                       <span className="text-[10px] text-slate-500">{step.description}</span>
                     </button>
+                    {/* Desktop-only arrows between steps */}
                     {index < 3 && (
-                      <ArrowRight className="w-5 h-5 text-slate-500 flex-shrink-0" />
-                    )}
-                    {/* Alternate path: Operator Conversation branches off after Heating/Gelling */}
-                    {step.id === 'gelling' && (
-                      <div className="absolute" style={{ display: 'none' }}>{/* placeholder for layout */}</div>
+                      <ArrowRight className="w-5 h-5 text-slate-500 flex-shrink-0 hidden sm:block" />
                     )}
                   </React.Fragment>
                 );
               })}
             </div>
 
+            {/* Mobile flow direction arrows for top row */}
+            <div className="flex justify-center sm:hidden">
+              <div className="flex items-center gap-1 text-slate-500">
+                <span className="text-[9px]">1</span>
+                <ArrowRight className="w-3 h-3" />
+                <span className="text-[9px]">2</span>
+                <ArrowRight className="w-3 h-3" />
+                <span className="text-[9px]">3</span>
+                <ArrowRight className="w-3 h-3" />
+                <span className="text-[9px]">4</span>
+              </div>
+            </div>
+
             {/* Alternate Path: Operator Conversation (branches off Heating/Gelling) */}
             <div className="flex justify-center">
-              <div className="flex items-center gap-2 ml-auto mr-16">
+              <div className="flex items-center gap-2 sm:ml-auto sm:mr-16">
                 <div className="flex flex-col items-center">
                   <div className="w-0.5 h-4 border-l-2 border-dashed border-purple-400/60" />
                 </div>
@@ -566,15 +521,15 @@ const Level2 = ({ onNavigateToLevel }) => {
             </div>
 
             {/* Connector arrow down */}
-            <div className="flex justify-end pr-12">
+            <div className="flex justify-center sm:justify-end sm:pr-12">
               <div className="flex flex-col items-center">
-                <div className="w-0.5 h-4 bg-slate-500" />
-                <ArrowRight className="w-5 h-5 text-slate-500 rotate-90" />
+                <div className="w-0.5 h-3 bg-slate-500" />
+                <ArrowDown className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
               </div>
             </div>
 
-            {/* Bottom row: steps 5-8 (reversed for flow) */}
-            <div className="flex items-center justify-center gap-1 sm:gap-2 flex-row-reverse min-w-fit mx-auto">
+            {/* Bottom row: steps 5-8 (reversed on desktop for flow, normal grid on mobile) */}
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:justify-center sm:gap-2 sm:flex-row-reverse">
               {processSteps.slice(4, 8).map((step, index) => {
                 const Icon = step.icon;
                 const sampleCount = getStepSampleCount(step.id);
@@ -585,7 +540,7 @@ const Level2 = ({ onNavigateToLevel }) => {
                   <React.Fragment key={step.id}>
                     <button
                       onClick={() => setSelectedStep(step.id)}
-                      className={`relative flex flex-col items-center p-2 sm:p-4 rounded-xl border-2 transition-all hover:scale-105 min-w-[80px] sm:min-w-[100px] ${
+                      className={`relative flex flex-col items-center p-2 sm:p-4 rounded-xl border-2 transition-all hover:scale-105 sm:min-w-[100px] ${
                         selectedStep === step.id
                           ? 'border-cyan-400 bg-cyan-900/40 shadow-lg shadow-cyan-500/20'
                           : isConfigured
@@ -615,17 +570,31 @@ const Level2 = ({ onNavigateToLevel }) => {
                       <span className="text-xs font-medium text-center">{step.name}</span>
                       <span className="text-[10px] text-slate-500">{step.description}</span>
                     </button>
+                    {/* Desktop-only arrows between steps */}
                     {index < 3 && (
-                      <ArrowRight className="w-5 h-5 text-slate-500 flex-shrink-0 rotate-180" />
+                      <ArrowRight className="w-5 h-5 text-slate-500 flex-shrink-0 rotate-180 hidden sm:block" />
                     )}
                   </React.Fragment>
                 );
               })}
             </div>
 
+            {/* Mobile flow direction arrows for bottom row */}
+            <div className="flex justify-center sm:hidden">
+              <div className="flex items-center gap-1 text-slate-500">
+                <span className="text-[9px]">5</span>
+                <ArrowRight className="w-3 h-3" />
+                <span className="text-[9px]">6</span>
+                <ArrowRight className="w-3 h-3" />
+                <span className="text-[9px]">7</span>
+                <ArrowRight className="w-3 h-3" />
+                <span className="text-[9px]">8</span>
+              </div>
+            </div>
+
             {/* Alternate Path: Shelf Life Validation (branches off QC Release) */}
             <div className="flex justify-center">
-              <div className="flex items-center gap-2 ml-16">
+              <div className="flex items-center gap-2 sm:ml-16">
                 <div className="flex flex-col items-center">
                   <div className="w-0.5 h-4 border-l-2 border-dashed border-purple-400/60" />
                 </div>

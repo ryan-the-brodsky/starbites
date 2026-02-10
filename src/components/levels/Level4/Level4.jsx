@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { FileText, Send, Eye, CheckCircle2, XCircle, AlertTriangle, Target, BarChart3, FlaskConical, ChevronDown, ChevronUp, HelpCircle, RotateCcw, Award, ArrowLeft, Users, X, Check, Trophy, MessageCircle } from 'lucide-react';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Legend } from 'recharts';
 import { useGame } from '../../../contexts/GameContext';
 import { successCriteriaOptions, operatorQuestions, operatorQuoteBank } from '../../../data/missionData';
 import { getPlayerCharacter } from '../../../data/characters';
+import { processSteps, testOptions, alternateValidationPaths } from '../../../data/processDefinitions';
+import ProcessFlowDataViewer from './ProcessFlowDataViewer';
 import LevelComplete from '../../common/LevelComplete';
 
 // Minimum sample count for statistical validity (internal policy)
@@ -462,146 +463,6 @@ const generateFakeData = (samplingPlan, successCriteria, seed = 42) => {
   return { data, scatterData, anomalies, uncoveredCriteria };
 };
 
-// Custom tooltip for scatter plot
-const CustomTooltip = ({ active, payload }) => {
-  if (active && payload && payload.length) {
-    const point = payload[0].payload;
-    return (
-      <div className="bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm">
-        <p className="text-slate-300">
-          Time: <span className="text-cyan-400">{Math.round(point.x)} min</span>
-        </p>
-        <p className="text-slate-300">
-          Value: <span className={point.inSpec ? 'text-green-400' : 'text-red-400'}>{point.y}</span>
-        </p>
-        <p className="text-slate-400 text-xs">
-          Sample #{point.sampleIndex} ({point.timePoint})
-        </p>
-      </div>
-    );
-  }
-  return null;
-};
-
-// Scatter plot component for a single test
-const TestScatterPlot = ({ testId, scatterPoints, spec }) => {
-  if (!scatterPoints || scatterPoints.length === 0) return null;
-
-  const specMin = spec.nominal - spec.variance;
-  const specMax = spec.nominal + spec.variance;
-
-  // Calculate y-axis domain with padding
-  const allValues = scatterPoints.map(p => p.y);
-  const minVal = Math.min(...allValues, specMin);
-  const maxVal = Math.max(...allValues, specMax);
-  const padding = (maxVal - minVal) * 0.2;
-  const yMin = minVal - padding;
-  const yMax = maxVal + padding;
-
-  // Split points into in-spec and out-of-spec for different colors
-  const inSpecPoints = scatterPoints.filter(p => p.inSpec);
-  const outOfSpecPoints = scatterPoints.filter(p => !p.inSpec);
-
-  return (
-    <div className="h-72">
-      {/* Spec limits legend - shown above chart */}
-      <div className="flex items-center justify-center gap-4 mb-2 text-xs">
-        <div className="flex items-center gap-1">
-          <div className="w-4 h-0.5 bg-amber-500" style={{ borderStyle: 'dashed' }} />
-          <span className="text-amber-400">Spec: {specMin} - {specMax} {spec.unit}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-4 h-0.5 bg-cyan-500 opacity-50" />
-          <span className="text-cyan-400">Target: {spec.nominal}</span>
-        </div>
-      </div>
-
-      <ResponsiveContainer width="100%" height="90%">
-        <ScatterChart margin={{ top: 10, right: 30, bottom: 30, left: 50 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-          <XAxis
-            type="number"
-            dataKey="x"
-            domain={[0, 180]}
-            tickFormatter={(val) => `${val}`}
-            stroke="#9ca3af"
-            fontSize={11}
-            ticks={[0, 30, 60, 90, 120, 150, 180]}
-          >
-            <text x="50%" y={28} textAnchor="middle" fill="#9ca3af" fontSize={10}>
-              Time (min)
-            </text>
-          </XAxis>
-          <YAxis
-            type="number"
-            dataKey="y"
-            domain={[yMin, yMax]}
-            stroke="#9ca3af"
-            fontSize={11}
-            width={45}
-            tickFormatter={(val) => val.toFixed(1)}
-          />
-          <Tooltip content={<CustomTooltip />} />
-
-          {/* Spec limit lines - no labels (shown in legend above) */}
-          <ReferenceLine
-            y={specMax}
-            stroke="#f59e0b"
-            strokeDasharray="5 5"
-            strokeWidth={2}
-          />
-          <ReferenceLine
-            y={specMin}
-            stroke="#f59e0b"
-            strokeDasharray="5 5"
-            strokeWidth={2}
-          />
-          <ReferenceLine
-            y={spec.nominal}
-            stroke="#06b6d4"
-            strokeDasharray="2 2"
-            strokeOpacity={0.5}
-          />
-
-          {/* Time point dividers */}
-          <ReferenceLine x={30} stroke="#475569" strokeDasharray="2 2" />
-          <ReferenceLine x={60} stroke="#475569" strokeDasharray="2 2" />
-          <ReferenceLine x={90} stroke="#475569" strokeDasharray="2 2" />
-          <ReferenceLine x={120} stroke="#475569" strokeDasharray="2 2" />
-          <ReferenceLine x={150} stroke="#475569" strokeDasharray="2 2" />
-
-          {/* In-spec points (green) */}
-          {inSpecPoints.length > 0 && (
-            <Scatter
-              name="In Spec"
-              data={inSpecPoints}
-              fill="#22c55e"
-              shape="circle"
-            />
-          )}
-
-          {/* Out-of-spec points (red) */}
-          {outOfSpecPoints.length > 0 && (
-            <Scatter
-              name="Out of Spec"
-              data={outOfSpecPoints}
-              fill="#ef4444"
-              shape="diamond"
-            />
-          )}
-
-          <Legend
-            verticalAlign="bottom"
-            height={24}
-            wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }}
-            formatter={(value) => <span style={{ color: '#9ca3af', marginRight: '12px' }}>{value}</span>}
-          />
-        </ScatterChart>
-      </ResponsiveContainer>
-    </div>
-  );
-};
-
 // Crew Agreement Status Panel component
 const CrewAgreementPanel = ({ players, agreements, playerId, onAgree, hasAgreed, allAgreed, gameState }) => {
   const allPlayers = Object.entries(players || {});
@@ -682,7 +543,6 @@ const CrewAgreementPanel = ({ players, agreements, playerId, onAgree, hasAgreed,
 
 const Level4 = ({ onNavigateToLevel }) => {
   const { gameState, updateLevelState, completeLevel, navigateToLevel, playerId } = useGame();
-  const [showData, setShowData] = useState(true);
   const [showPreviousWork, setShowPreviousWork] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showLevelComplete, setShowLevelComplete] = useState(false);
@@ -993,7 +853,7 @@ const Level4 = ({ onNavigateToLevel }) => {
       // Only CRITICAL anomalies cause failure - minor deviations are acceptable with a note
       if (criticalAnomalies.length > 0) {
         const anomalyDetails = criticalAnomalies.map(a =>
-          `${a.step} ${a.test}: ${a.value}${a.unit} (expected ${a.expected})`
+          `${processSteps.find(s => s.id === a.step)?.name || a.step} ${testOptions[a.test]?.name || a.test}: ${a.value}${a.unit} (expected ${a.expected})`
         );
 
         answers[criteria.id] = {
@@ -1015,7 +875,7 @@ const Level4 = ({ onNavigateToLevel }) => {
 
         if (minorAnomalies.length > 0) {
           const minorDetails = minorAnomalies.map(a =>
-            `${a.step} ${a.test}: ${a.value}${a.unit} (expected ${a.expected})`
+            `${processSteps.find(s => s.id === a.step)?.name || a.step} ${testOptions[a.test]?.name || a.test}: ${a.value}${a.unit} (expected ${a.expected})`
           );
           notes.push(`Minor deviations noted (within acceptable range): ${minorDetails.join('; ')}`);
         }
@@ -1604,7 +1464,7 @@ const Level4 = ({ onNavigateToLevel }) => {
                                   <div className="mt-1 space-y-0.5">
                                     {correct.minorAnomalies.map((a, i) => (
                                       <p key={i} className="text-xs text-amber-300">
-                                        - {a.step} {a.test}: {a.value}{a.unit} (expected {a.expected})
+                                        - {processSteps.find(s => s.id === a.step)?.name || a.step} {testOptions[a.test]?.name || a.test}: {a.value}{a.unit} (expected {a.expected})
                                       </p>
                                     ))}
                                   </div>
@@ -1736,177 +1596,15 @@ const Level4 = ({ onNavigateToLevel }) => {
           </div>
         )}
 
-        {/* Generated Data Display */}
-        <div className="bg-slate-800/50 rounded-xl p-3 sm:p-6 border border-slate-700 mb-4 sm:mb-6">
-          <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-cyan-400 flex-shrink-0" />
-              <div className="min-w-0">
-                <h2 className="text-base sm:text-xl font-semibold">Trial Production Data</h2>
-                <p className="text-xs sm:text-sm text-slate-400">Generated from your sampling plan</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowData(!showData)}
-              className="text-sm text-slate-400 hover:text-white flex items-center gap-1"
-            >
-              {showData ? 'Hide' : 'Show'} Data
-              {showData ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
-          </div>
-
-          {showData && (
-            <div className="space-y-6">
-              {Object.entries(generatedData).map(([stepId, stepData]) => (
-                <div key={stepId} className="bg-slate-900/50 rounded-lg p-3 sm:p-4">
-                  <h3 className="font-medium text-cyan-300 mb-3 capitalize text-sm sm:text-base">{stepId.replace(/([A-Z])/g, ' $1')}</h3>
-
-                  {/* Summary Table */}
-                  <div className="overflow-x-auto mb-4">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-slate-400">
-                          <th className="text-left pb-2">Test</th>
-                          {Object.keys(Object.values(stepData)[0] || {}).map(tp => (
-                            <th key={tp} className="text-center pb-2">{timePointLabels[tp] || tp}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.entries(stepData).map(([testId, testData]) => (
-                          <tr key={testId} className="border-t border-slate-700">
-                            <td className="py-2 font-medium text-slate-300 capitalize">
-                              {testId.replace(/([A-Z])/g, ' $1')}
-                            </td>
-                            {Object.entries(testData).map(([tp, result]) => (
-                              <td key={tp} className="py-2 text-center">
-                                <span className={`px-2 py-1 rounded ${
-                                  result.inSpec
-                                    ? 'bg-green-900/30 text-green-300'
-                                    : 'bg-red-900/30 text-red-300'
-                                }`}>
-                                  {result.value} {result.unit}
-                                </span>
-                                <div className="text-xs text-slate-500 mt-1">
-                                  n={result.sampleCount}
-                                  {!result.inSpec && ` - Expected: ${result.expected}`}
-                                </div>
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Scatter Plots for each test */}
-                  <div className="space-y-4 mt-4 pt-4 border-t border-slate-700">
-                    <h4 className="text-sm font-medium text-slate-400">Sample Data Plots</h4>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {Object.entries(stepData).map(([testId, testData]) => {
-                        const scatterPoints = scatterData[stepId]?.[testId] || [];
-                        const spec = testSpecs[testId];
-                        if (!spec || scatterPoints.length === 0) return null;
-
-                        return (
-                          <div key={testId} className="bg-slate-800/50 rounded-lg p-3">
-                            <h5 className="text-sm font-medium text-slate-300 mb-2 capitalize flex items-center gap-2">
-                              {testId.replace(/([A-Z])/g, ' $1')}
-                              <span className="text-xs text-slate-500">
-                                ({scatterPoints.length} samples)
-                              </span>
-                            </h5>
-                            <TestScatterPlot
-                              testId={testId}
-                              scatterPoints={scatterPoints}
-                              spec={spec}
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {Object.keys(generatedData).length === 0 && (
-                <div className="text-center py-8 text-slate-500">
-                  <FlaskConical className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>No sampling data available</p>
-                  <p className="text-sm">Your sampling plan didn't collect any data</p>
-                </div>
-              )}
-
-              {/* Anomaly Summary */}
-              {anomalies.length > 0 && (
-                <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-4">
-                  <h4 className="font-medium text-red-300 mb-2 flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4" />
-                    Detected Anomalies ({anomalies.length})
-                  </h4>
-                  <ul className="text-sm space-y-1">
-                    {anomalies.map((a, i) => (
-                      <li key={i} className={`flex items-center gap-2 ${a.severity === 'critical' ? 'text-red-300' : 'text-amber-300'}`}>
-                        {a.severity === 'critical' ? <XCircle className="w-3 h-3 flex-shrink-0" /> : <AlertTriangle className="w-3 h-3 flex-shrink-0" />}
-                        <span className="capitalize">{a.step}</span> - {a.test}: {a.value} {a.unit}
-                        <span className="text-slate-500">(expected {a.expected}, n={a.sampleCount})</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Operator Conversation Results */}
-              {conversationalData.length > 0 && (
-                <div className="bg-purple-900/20 border border-purple-700/50 rounded-lg p-4">
-                  <h4 className="font-medium text-purple-300 mb-3 flex items-center gap-2">
-                    <MessageCircle className="w-5 h-5" />
-                    Operator Conversation Results
-                  </h4>
-                  <p className="text-sm text-slate-400 mb-4">
-                    Responses from plant operators based on your questions during the trial.
-                  </p>
-                  <div className="space-y-3">
-                    {conversationalData.map((cd, i) => (
-                      <div
-                        key={i}
-                        className={`rounded-lg p-4 border ${
-                          cd.isPositive
-                            ? 'bg-green-900/20 border-green-700/50'
-                            : 'bg-red-900/20 border-red-700/50'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            cd.isPositive ? 'bg-green-600/30' : 'bg-red-600/30'
-                          }`}>
-                            <MessageCircle className={`w-4 h-4 ${cd.isPositive ? 'text-green-400' : 'text-red-400'}`} />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-medium px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">
-                                {cd.category}
-                              </span>
-                            </div>
-                            <p className="text-xs text-slate-500 mb-1 italic">
-                              Q: "{cd.question}"
-                            </p>
-                            <p className={`text-sm font-medium ${cd.isPositive ? 'text-green-300' : 'text-red-300'}`}>
-                              {cd.speaker}:
-                            </p>
-                            <p className="text-sm text-slate-200 mt-1">
-                              "{cd.quote}"
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        {/* Generated Data Display - Interactive Process Flow Viewer */}
+        <ProcessFlowDataViewer
+          generatedData={generatedData}
+          scatterData={scatterData}
+          anomalies={anomalies}
+          conversationalData={conversationalData}
+          testSpecs={testSpecs}
+          timePointLabels={timePointLabels}
+        />
 
         {/* Success Criteria Assessment */}
         <div className="bg-slate-800/50 rounded-xl p-3 sm:p-6 border border-slate-700 mb-4 sm:mb-6">

@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { GameProvider } from './contexts/GameContext';
 import { AdminProvider } from './contexts/AdminContext';
@@ -29,8 +29,19 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+// Scroll to top on route change
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+};
+
 function AppRoutes() {
   return (
+    <>
+    <ScrollToTop />
     <Routes>
       {/* Admin route - obscured URL acts as access control */}
       <Route path="/admin/missioncontrol" element={<AdminProvider><Admin /></AdminProvider>} />
@@ -64,6 +75,7 @@ function AppRoutes() {
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }
 

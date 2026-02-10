@@ -189,18 +189,21 @@ const Game = () => {
   const handleCrewIntroContinue = () => {
     setHasSeenCrewIntro(true);
     localStorage.setItem(`joybites_seen_intro_${gameCode}`, 'true');
+    window.scrollTo(0, 0);
   };
 
   // Handler for selecting a level to view (also handles 0 for level select screen)
   const handleSelectLevel = (levelNum) => {
     setPlayerViewLevel(levelNum);
     localStorage.setItem(`joybites_view_level_${gameCode}`, levelNum.toString());
+    window.scrollTo(0, 0);
   };
 
   // Handler for going back to level select
   const handleBackToLevelSelect = () => {
     setPlayerViewLevel(0);
     localStorage.setItem(`joybites_view_level_${gameCode}`, '0');
+    window.scrollTo(0, 0);
   };
 
   if (!gameState) {

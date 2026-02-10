@@ -108,6 +108,7 @@ const RoleSelection = () => {
 
   const handleStartGame = () => {
     startGame();
+    window.scrollTo(0, 0);
   };
 
   // Check if all players have selected roles
