@@ -52,6 +52,62 @@ export const dfmeaSummary = {
       effect: 'Product becomes monotonous; fails to provide sensory lift',
       rpn: 175,
       control: 'Texture analysis for variety; flavor complexity scoring by trained panel'
+    },
+    {
+      id: 'fm6',
+      mode: 'Gellan gum dosing variance destabilizes gel network',
+      cause: 'At 0.15% concentration, minor weighing errors (±0.02%) critically alter gel strength and suspension stability',
+      effect: 'Product is too soft/runny or too firm; orange flavor particles settle out of suspension',
+      rpn: 210,
+      control: 'Precision gravimetric dosing with ±0.005% tolerance; in-line viscosity monitoring during gelling'
+    },
+    {
+      id: 'fm7',
+      mode: 'Sugar crystallization during temperature cycling',
+      cause: 'Combined 33% sugar load (28% cane + 5% invert) undergoes crystallization when exposed to temperature swings in spacecraft storage',
+      effect: 'Gritty mouthfeel; loss of smooth texture; reduced emotional comfort from familiar candy experience',
+      rpn: 180,
+      control: 'Accelerated temperature cycling test (-18°C to 40°C); crystal formation monitoring via polarized light microscopy'
+    },
+    {
+      id: 'fm8',
+      mode: 'Natural orange flavor volatile loss during processing',
+      cause: 'Heat-sensitive aromatic compounds in natural orange flavor (1.2%) and vanilla extract (0.3%) degrade above 70°C during mixing/gelling',
+      effect: 'Product loses signature orange burst and familiar warmth; fails sensory identity targets',
+      rpn: 195,
+      control: 'Flavor addition at ≤55°C post-gelling; headspace GC analysis for key volatiles (limonene, linalool, vanillin)'
+    },
+    {
+      id: 'fm9',
+      mode: 'Soluble fiber syrup hygroscopic moisture migration',
+      cause: 'Soluble fiber syrup (22%) absorbs ambient moisture over extended storage, especially in variable humidity spacecraft environments',
+      effect: 'Surface becomes tacky/sticky; product adheres to packaging; texture softens beyond specification',
+      rpn: 170,
+      control: 'Water activity (aw) monitoring at 0.55-0.65 target; moisture barrier packaging validation over 12-month shelf life'
+    },
+    {
+      id: 'fm10',
+      mode: 'Modified tapioca starch retrogradation',
+      cause: 'Starch molecules (6%) re-crystallize over extended shelf life, accelerated by temperature fluctuations in space',
+      effect: 'Product becomes progressively harder and less chewy; texture diverges from initial quality over mission duration',
+      rpn: 165,
+      control: 'Texture profile analysis at 0, 3, 6, 12 months; starch modification grade selection for retrogradation resistance'
+    },
+    {
+      id: 'fm11',
+      mode: 'Sunflower lecithin emulsion breakdown',
+      cause: 'Sunflower lecithin (0.4%) concentration insufficient to maintain stable emulsion under microgravity fluid dynamics',
+      effect: 'Phase separation; oil droplets coalesce on surface; unappetizing appearance and mouthfeel',
+      rpn: 155,
+      control: 'Emulsion stability index testing under simulated microgravity; lecithin concentration optimization study'
+    },
+    {
+      id: 'fm12',
+      mode: 'Coloring food juice degradation from UV/light exposure',
+      cause: 'Natural juice-based colorants (0.5%) are highly sensitive to light and oxidation, accelerated by mixed tocopherols interaction',
+      effect: 'Color fades from vibrant orange to dull brown/yellow; fails visual joy and delight expectations',
+      rpn: 185,
+      control: 'Accelerated photostability testing; opaque packaging with <0.1% UV transmission; color delta-E monitoring'
     }
   ]
 };
@@ -179,6 +235,51 @@ export const productDevCriteria = [
       { step: 'cooling', test: 'moisture', description: 'Post-cooling moisture' }
     ],
     targetSpec: { metric: 'moisture_content', min: 12, max: 16, unit: 'percent' }
+  },
+  {
+    id: 'pd6',
+    text: 'Verify gellan gum dosing precision within ±0.005% to maintain consistent gel network strength',
+    source: 'dfmea',
+    sourceRef: 'FM6: Gellan gum dosing variance',
+    category: 'Process Control',
+    role: 'productDev',
+    importanceWeight: 85,
+    measurementType: 'instrumental',
+    requiredMeasurements: [
+      { step: 'blending', test: 'weight', description: 'Gellan gum gravimetric dosing verification' },
+      { step: 'gelling', test: 'gel', description: 'In-line viscosity during gelling' }
+    ],
+    targetSpec: { metric: 'gellan_dosing_accuracy', min: 0.145, max: 0.155, unit: 'percent' }
+  },
+  {
+    id: 'pd7',
+    text: 'Pass accelerated temperature cycling test with zero sugar crystallization detected over simulated 6-month mission',
+    source: 'dfmea',
+    sourceRef: 'FM7: Sugar crystallization',
+    category: 'Shelf Stability',
+    role: 'productDev',
+    importanceWeight: 75,
+    measurementType: 'instrumental',
+    requiredMeasurements: [
+      { step: 'cooling', test: 'texture', description: 'Crystal formation check via polarized light microscopy' },
+      { step: 'release', test: 'sensory', description: 'Texture grittiness evaluation post-cycling' }
+    ],
+    targetSpec: { metric: 'crystal_count', min: 0, max: 0, unit: 'count' }
+  },
+  {
+    id: 'pd8',
+    text: 'Retain ≥85% of key orange flavor volatiles (limonene, linalool) through processing by adding flavor post-gelling at ≤55°C',
+    source: 'dfmea',
+    sourceRef: 'FM8: Natural orange flavor volatile loss',
+    category: 'Flavor Integrity',
+    role: 'productDev',
+    importanceWeight: 80,
+    measurementType: 'instrumental',
+    requiredMeasurements: [
+      { step: 'mixing', test: 'temp', description: 'Flavor addition temperature verification' },
+      { step: 'release', test: 'sensory', description: 'Headspace GC volatile retention analysis' }
+    ],
+    targetSpec: { metric: 'volatile_retention', min: 85, max: 100, unit: 'percent' }
   }
 ];
 
