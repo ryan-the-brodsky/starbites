@@ -1,8 +1,9 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { CheckCircle2, FlaskConical, Clock, AlertTriangle, X, ArrowRight, ArrowDown, Target, Info, Plus, Minus, MessageCircle, TestTube } from 'lucide-react';
 import { useGame } from '../../../contexts/GameContext';
 import { operatorQuestions } from '../../../data/missionData';
 import { processSteps, testOptions, timePoints, alternateValidationPaths } from '../../../data/processDefinitions';
+import { createDebouncedWriter } from '../../../utils/debouncedWrite';
 import LevelComplete from '../../common/LevelComplete';
 
 const MAX_SAMPLES = 300;
@@ -25,20 +26,37 @@ const Level2 = ({ onNavigateToLevel }) => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [quickAddQuantity, setQuickAddQuantity] = useState(10);
 
+  // Ref-based check to avoid JSON.stringify on every render
+  const lastFirebasePlanRef = useRef(gameState?.level2?.samplingPlan);
+
   // Sync sampling plan FROM Firebase (other players' changes)
   useEffect(() => {
     const firebasePlan = gameState?.level2?.samplingPlan;
-    if (firebasePlan && JSON.stringify(firebasePlan) !== JSON.stringify(samplingPlan)) {
+    if (firebasePlan && firebasePlan !== lastFirebasePlanRef.current) {
+      lastFirebasePlanRef.current = firebasePlan;
       setSamplingPlan(firebasePlan);
     }
   }, [gameState?.level2?.samplingPlan]);
 
-  // Sync sampling plan TO Firebase whenever it changes locally
+  // Debounced sync to Firebase (500ms) - coalesces rapid +/- clicks into a single write
+  const debouncedWriterRef = useRef(null);
+  if (!debouncedWriterRef.current) {
+    debouncedWriterRef.current = createDebouncedWriter((plan) => {
+      updateLevelState('level2', { samplingPlan: plan });
+    }, 500);
+  }
+
+  // Flush debounced writes on unmount
+  useEffect(() => {
+    return () => {
+      if (debouncedWriterRef.current) debouncedWriterRef.current.flush();
+    };
+  }, []);
+
+  // Sync sampling plan TO Firebase via debounced writer
   const syncPlanToFirebase = useCallback((newPlan) => {
-    updateLevelState('level2', {
-      samplingPlan: newPlan,
-    });
-  }, [updateLevelState]);
+    debouncedWriterRef.current.write(newPlan);
+  }, []);
 
   // Get selected criteria from Level 1
   const selectedCriteria = gameState?.level1?.selectedCriteria || [];
@@ -72,12 +90,11 @@ const Level2 = ({ onNavigateToLevel }) => {
     return requiredMeasurements.has(`${stepId}-${testId}`);
   };
 
-  // Count total samples used
-  const getTotalSamples = () => {
+  // Count total samples used (memoized)
+  const samplesUsed = useMemo(() => {
     let total = 0;
     Object.entries(samplingPlan).forEach(([stepId, stepPlan]) => {
       if (stepId === 'operator-conversation') {
-        // Conversational data: sum up question costs
         Object.values(stepPlan).forEach(questionData => {
           if (questionData?.asked) {
             total += questionData.cost || 0;
@@ -92,25 +109,21 @@ const Level2 = ({ onNavigateToLevel }) => {
       }
     });
     return total;
-  };
+  }, [samplingPlan]);
 
-  const samplesUsed = getTotalSamples();
   const samplesRemaining = MAX_SAMPLES - samplesUsed;
 
-  // Calculate criteria coverage
-  const getCriteriaCoverage = () => {
+  // Calculate criteria coverage (memoized)
+  const coverage = useMemo(() => {
     const covered = new Set();
 
     Object.entries(samplingPlan).forEach(([stepId, stepPlan]) => {
       if (stepId === 'operator-conversation') {
-        // Conversational data: check if asked questions cover criteria
         Object.entries(stepPlan).forEach(([questionId, questionData]) => {
           if (questionData?.asked) {
-            // Find which criteria this question covers
             const question = operatorQuestions.find(q => q.id === questionId);
             if (question) {
               question.relatedCriteria.forEach(criteriaId => {
-                // Only mark covered if this criteria is actually selected
                 if (selectedCriteria.some(c => c.id === criteriaId)) {
                   covered.add(criteriaId);
                 }
@@ -120,7 +133,6 @@ const Level2 = ({ onNavigateToLevel }) => {
         });
       } else {
         Object.entries(stepPlan).forEach(([testId, testPlan]) => {
-          // Check if this test has any samples at any timepoint
           const hasAnySamples = Object.values(testPlan).some(qty => qty > 0);
           if (hasAnySamples) {
             const key = `${stepId}-${testId}`;
@@ -139,9 +151,7 @@ const Level2 = ({ onNavigateToLevel }) => {
       total: selectedCriteria.length,
       coveredIds: Array.from(covered)
     };
-  };
-
-  const coverage = getCriteriaCoverage();
+  }, [samplingPlan, selectedCriteria, requiredMeasurements]);
 
   // Get the quantity for a specific step/test/timepoint combination
   const getSampleQuantity = (stepId, testId, timePointId) => {
@@ -962,4 +972,4 @@ const Level2 = ({ onNavigateToLevel }) => {
   );
 };
 
-export default Level2;
+export default React.memo(Level2);

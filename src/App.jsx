@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { GameProvider } from './contexts/GameContext';
@@ -7,8 +7,16 @@ import { ToastProvider } from './contexts/ToastContext';
 import PasswordGate from './pages/PasswordGate';
 import Home from './pages/Home';
 import Game from './pages/Game';
-import Leaderboard from './pages/Leaderboard';
-import Admin from './pages/Admin';
+
+// Lazy-loaded pages
+const Leaderboard = lazy(() => import('./pages/Leaderboard'));
+const Admin = lazy(() => import('./pages/Admin'));
+
+const PageLoadingSpinner = () => (
+  <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-500"></div>
+  </div>
+);
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }) => {
@@ -44,7 +52,7 @@ function AppRoutes() {
     <ScrollToTop />
     <Routes>
       {/* Admin route - obscured URL acts as access control */}
-      <Route path="/admin/missioncontrol" element={<AdminProvider><Admin /></AdminProvider>} />
+      <Route path="/admin/missioncontrol" element={<Suspense fallback={<PageLoadingSpinner />}><AdminProvider><Admin /></AdminProvider></Suspense>} />
 
       {/* Protected routes */}
       <Route
@@ -67,7 +75,9 @@ function AppRoutes() {
         path="/leaderboard"
         element={
           <ProtectedRoute>
-            <Leaderboard />
+            <Suspense fallback={<PageLoadingSpinner />}>
+              <Leaderboard />
+            </Suspense>
           </ProtectedRoute>
         }
       />

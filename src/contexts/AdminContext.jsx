@@ -5,6 +5,7 @@ import {
   updateMetaInDB,
   removeGameFromDB,
   subscribeToAllGames,
+  multiPathUpdate,
 } from '../firebase';
 import { createInitialGameState } from './GameContext';
 
@@ -64,12 +65,19 @@ export const AdminProvider = ({ children }) => {
       .sort((a, b) => b.score - a.score);
   }, [allGames]);
 
-  // Pause/Resume all games
+  // Pause/Resume all games (batched for Firebase)
   const toggleGlobalPause = useCallback(async (isPaused) => {
     if (useFirebase) {
       const games = await getAllGamesFromDB();
-      for (const gameCode of Object.keys(games)) {
-        await updateMetaInDB(gameCode, { isPaused });
+      const gameCodes = Object.keys(games);
+      const BATCH_SIZE = 50;
+      for (let i = 0; i < gameCodes.length; i += BATCH_SIZE) {
+        const batch = gameCodes.slice(i, i + BATCH_SIZE);
+        const updates = {};
+        batch.forEach(code => {
+          updates[`games/${code}/meta/isPaused`] = isPaused;
+        });
+        await multiPathUpdate(updates);
       }
     } else {
       setAllGames(prev => {
@@ -131,29 +139,45 @@ export const AdminProvider = ({ children }) => {
     }
   }, [useFirebase]);
 
-  // Delete all teams
+  // Delete all teams (batched in groups of 50 for Firebase)
   const deleteAllTeams = useCallback(async () => {
     const gameCodes = Object.keys(allGames);
-    for (const gameCode of gameCodes) {
-      if (useFirebase) {
-        await removeGameFromDB(gameCode);
-      } else {
-        localStorage.removeItem(`joybites_game_${gameCode}`);
+    if (useFirebase) {
+      // Batch deletes in groups of 50 using multi-path updates
+      const BATCH_SIZE = 50;
+      for (let i = 0; i < gameCodes.length; i += BATCH_SIZE) {
+        const batch = gameCodes.slice(i, i + BATCH_SIZE);
+        const updates = {};
+        batch.forEach(code => {
+          updates[`games/${code}`] = null;
+        });
+        await multiPathUpdate(updates);
       }
-    }
-    if (!useFirebase) {
+    } else {
+      gameCodes.forEach(code => localStorage.removeItem(`joybites_game_${code}`));
       setAllGames({});
     }
   }, [allGames, useFirebase]);
 
-  // Advance all teams to a target level
+  // Advance all teams to a target level (batched for Firebase)
   const advanceAllTeams = useCallback(async (targetLevel) => {
-    for (const [gameCode, game] of Object.entries(allGames)) {
-      const currentHighest = game.meta?.highestUnlockedLevel || 1;
-      if (targetLevel > currentHighest) {
-        if (useFirebase) {
-          await updateMetaInDB(gameCode, { highestUnlockedLevel: targetLevel });
-        } else {
+    if (useFirebase) {
+      const eligibleCodes = Object.entries(allGames)
+        .filter(([, game]) => targetLevel > (game.meta?.highestUnlockedLevel || 1))
+        .map(([code]) => code);
+      const BATCH_SIZE = 50;
+      for (let i = 0; i < eligibleCodes.length; i += BATCH_SIZE) {
+        const batch = eligibleCodes.slice(i, i + BATCH_SIZE);
+        const updates = {};
+        batch.forEach(code => {
+          updates[`games/${code}/meta/highestUnlockedLevel`] = targetLevel;
+        });
+        await multiPathUpdate(updates);
+      }
+    } else {
+      Object.entries(allGames).forEach(([gameCode, game]) => {
+        const currentHighest = game.meta?.highestUnlockedLevel || 1;
+        if (targetLevel > currentHighest) {
           const updated = {
             ...game,
             meta: { ...game.meta, highestUnlockedLevel: targetLevel },
@@ -161,39 +185,67 @@ export const AdminProvider = ({ children }) => {
           localStorage.setItem(`joybites_game_${gameCode}`, JSON.stringify(updated));
           setAllGames(prev => ({ ...prev, [gameCode]: updated }));
         }
-      }
+      });
     }
   }, [allGames, useFirebase]);
 
-  // Start/stop timer for all teams
+  // Start/stop timer for all teams (batched for Firebase)
   const setGlobalTimer = useCallback(async (levelNum, durationMinutes) => {
     const timerData = durationMinutes
       ? { isActive: true, startedAt: Date.now(), durationMinutes, levelNum }
       : { isActive: false, startedAt: null, durationMinutes: null, levelNum: null };
 
-    for (const gameCode of Object.keys(allGames)) {
-      if (useFirebase) {
-        await updateMetaInDB(gameCode, { timer: timerData });
-      } else {
-        const game = allGames[gameCode];
-        const updated = { ...game, meta: { ...game.meta, timer: timerData } };
-        localStorage.setItem(`joybites_game_${gameCode}`, JSON.stringify(updated));
+    if (useFirebase) {
+      const gameCodes = Object.keys(allGames);
+      const BATCH_SIZE = 50;
+      for (let i = 0; i < gameCodes.length; i += BATCH_SIZE) {
+        const batch = gameCodes.slice(i, i + BATCH_SIZE);
+        const updates = {};
+        batch.forEach(code => {
+          updates[`games/${code}/meta/timer`] = timerData;
+        });
+        await multiPathUpdate(updates);
       }
-    }
-
-    if (!useFirebase) {
+    } else {
       setAllGames(prev => {
         const updated = {};
         Object.entries(prev).forEach(([code, game]) => {
           updated[code] = { ...game, meta: { ...game.meta, timer: timerData } };
+          localStorage.setItem(`joybites_game_${code}`, JSON.stringify(updated[code]));
         });
         return updated;
       });
     }
   }, [allGames, useFirebase]);
 
+  // Pagination: visible count with "Load More" pattern
+  const [visibleCount, setVisibleCount] = useState(50);
+
+  // Sorted games by createdAt descending
+  const sortedGameCodes = useMemo(() => {
+    return Object.keys(allGames).sort((a, b) => {
+      return (allGames[b]?.meta?.createdAt || 0) - (allGames[a]?.meta?.createdAt || 0);
+    });
+  }, [allGames]);
+
+  const visibleGames = useMemo(() => {
+    const codes = sortedGameCodes.slice(0, visibleCount);
+    const result = {};
+    codes.forEach(code => { result[code] = allGames[code]; });
+    return result;
+  }, [allGames, sortedGameCodes, visibleCount]);
+
+  const hasMore = sortedGameCodes.length > visibleCount;
+
+  const loadMore = useCallback(() => {
+    setVisibleCount(prev => prev + 50);
+  }, []);
+
   const value = {
-    allGames,
+    allGames: visibleGames,
+    totalGameCount: sortedGameCodes.length,
+    hasMore,
+    loadMore,
     leaderboard,
     useFirebase,
     toggleGlobalPause,

@@ -819,4 +819,4 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
   );
 };
 
-export default SuccessCriteria;
+export default React.memo(SuccessCriteria);

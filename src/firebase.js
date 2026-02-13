@@ -66,11 +66,12 @@ export const updateLevelInDB = async (gameCode, levelNum, updates) => {
 };
 
 // Deep path update - allows updating nested paths without overwriting siblings
+// Uses multi-path update to prevent overwriting sibling data when two players write simultaneously
 // e.g., updateLevelPathInDB(gameCode, 1, 'roleSelections/productDev/playerSelections/player123', [1,2,3])
 export const updateLevelPathInDB = async (gameCode, levelNum, path, value) => {
   if (!database) throw new Error('Firebase not configured');
-  const dbRef = ref(database, `games/${gameCode}/level${levelNum}/${path}`);
-  await set(dbRef, value);
+  const fullPath = `games/${gameCode}/level${levelNum}/${path}`;
+  await update(ref(database), { [fullPath]: value });
 };
 
 export const updateMetaInDB = async (gameCode, updates) => {
@@ -107,6 +108,54 @@ export const subscribeToGame = (gameCode, callback) => {
   }
   return onValue(dbRef, (snapshot) => {
     callback(snapshot.exists() ? snapshot.val() : null);
+  });
+};
+
+// Scoped per-level listener - only receives updates for a specific level
+export const subscribeToLevel = (gameCode, levelNum, callback) => {
+  const dbRef = levelRef(gameCode, levelNum);
+  if (!dbRef) {
+    callback(null);
+    return () => {};
+  }
+  return onValue(dbRef, (snapshot) => {
+    callback(snapshot.exists() ? snapshot.val() : null);
+  });
+};
+
+// Scoped meta listener - only receives updates for game meta
+export const subscribeToMeta = (gameCode, callback) => {
+  const dbRef = metaRef(gameCode);
+  if (!dbRef) {
+    callback(null);
+    return () => {};
+  }
+  return onValue(dbRef, (snapshot) => {
+    callback(snapshot.exists() ? snapshot.val() : null);
+  });
+};
+
+// Scoped players listener - only receives updates for players
+export const subscribeToPlayers = (gameCode, callback) => {
+  const dbRef = playersRef(gameCode);
+  if (!dbRef) {
+    callback(null);
+    return () => {};
+  }
+  return onValue(dbRef, (snapshot) => {
+    callback(snapshot.exists() ? snapshot.val() : null);
+  });
+};
+
+// Connection state monitoring
+export const subscribeToConnectionState = (callback) => {
+  if (!database) {
+    callback(false);
+    return () => {};
+  }
+  const connectedRef = ref(database, '.info/connected');
+  return onValue(connectedRef, (snapshot) => {
+    callback(snapshot.val() === true);
   });
 };
 

@@ -1736,4 +1736,4 @@ const Level4 = ({ onNavigateToLevel }) => {
   );
 };
 
-export default Level4;
+export default React.memo(Level4);

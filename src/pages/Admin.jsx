@@ -12,7 +12,8 @@ import { LEVEL_TIMES } from '../config/levelConfig';
 
 const Admin = () => {
   const {
-    allGames, leaderboard, useFirebase,
+    allGames, totalGameCount, hasMore, loadMore,
+    leaderboard, useFirebase,
     toggleGlobalPause, resetTeamProgress, restoreTeam,
     deleteAllTeams, advanceAllTeams, setGlobalTimer
   } = useAdmin();
@@ -337,7 +338,8 @@ const Admin = () => {
           <div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
             <h2 className="text-lg font-semibold">All Teams</h2>
             <span className="text-slate-500 text-sm">
-              {teams.length} team{teams.length !== 1 ? 's' : ''}
+              {totalGameCount || teams.length} team{(totalGameCount || teams.length) !== 1 ? 's' : ''}
+              {totalGameCount > teams.length && <span className="text-slate-500 ml-1">(showing {teams.length})</span>}
             </span>
           </div>
 
@@ -427,6 +429,17 @@ const Admin = () => {
                   )}
                 </div>
               ))}
+            </div>
+          )}
+          {/* Load More button for paginated list */}
+          {hasMore && (
+            <div className="p-4 text-center border-t border-slate-700">
+              <button
+                onClick={loadMore}
+                className="bg-slate-700 hover:bg-slate-600 px-6 py-2 rounded-lg text-sm text-slate-300 transition-colors"
+              >
+                Load More Teams ({totalGameCount - teams.length} remaining)
+              </button>
             </div>
           )}
         </div>

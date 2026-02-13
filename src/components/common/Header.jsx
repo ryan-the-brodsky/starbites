@@ -8,7 +8,7 @@ import { getPlayerCharacter } from '../../data/characters';
 
 const Header = () => {
   const navigate = useNavigate();
-  const { gameState, leaveGame, role, playerId, functionalRole } = useGame();
+  const { gameState, leaveGame, role, playerId, functionalRole, isConnected, useFirebase } = useGame();
   const { logout } = useAuth();
   const [showResources, setShowResources] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -32,6 +32,12 @@ const Header = () => {
 
   return (
     <>
+      {/* Offline banner */}
+      {useFirebase && !isConnected && (
+        <div className="bg-amber-600 text-white text-center py-1.5 px-4 text-sm font-medium sticky top-0 z-50">
+          Offline — changes will sync when reconnected
+        </div>
+      )}
       <header className="bg-slate-900/95 backdrop-blur border-b border-slate-700 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-2">
           <div className="flex items-center justify-between">

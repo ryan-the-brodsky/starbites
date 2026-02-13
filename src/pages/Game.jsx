@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense, lazy } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Target, FlaskConical, FileText, Lock, CheckCircle2, Shield, ShieldOff, ChevronLeft } from 'lucide-react';
 import { useGame } from '../contexts/GameContext';
@@ -6,12 +6,25 @@ import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/common/Header';
 import RoleSelection from '../components/RoleSelection/RoleSelection';
 import CrewIntro from '../components/CrewIntro/CrewIntro';
-import SuccessCriteria from '../components/levels/SuccessCriteria/SuccessCriteria';
 import LevelTimer from '../components/common/LevelTimer';
-import Level2 from '../components/levels/Level2/Level2'; // Sampling Plan (Level 2)
-import Level4 from '../components/levels/Level4/Level4'; // Mission Report (Level 3)
 import Certificate from '../components/common/Certificate';
 import LevelNavigator from '../components/common/LevelNavigator';
+import LevelErrorBoundary from '../components/common/LevelErrorBoundary';
+
+// Lazy-loaded level components
+const SuccessCriteria = lazy(() => import('../components/levels/SuccessCriteria/SuccessCriteria'));
+const Level2 = lazy(() => import('../components/levels/Level2/Level2'));
+const Level4 = lazy(() => import('../components/levels/Level4/Level4'));
+
+// Loading spinner for lazy-loaded components
+const LevelLoadingSpinner = () => (
+  <div className="min-h-[50vh] flex items-center justify-center">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-cyan-500 mx-auto mb-3"></div>
+      <p className="text-slate-400 text-sm">Loading level...</p>
+    </div>
+  </div>
+);
 
 // Level information for the level select screen
 const levelInfo = [
@@ -149,7 +162,7 @@ const BackToLevelSelect = ({ onBack }) => (
 const Game = () => {
   const { gameCode } = useParams();
   const navigate = useNavigate();
-  const { gameState, joinGame, isInGame, gameStarted } = useGame();
+  const { gameState, joinGame, isInGame, gameStarted, subscribeToCurrentLevel } = useGame();
   const { isTestMode, toggleTestMode } = useAuth();
 
   // Local state for which level THIS player is viewing
@@ -165,6 +178,13 @@ const Game = () => {
       joinGame(gameCode);
     }
   }, [gameCode, isInGame, joinGame]);
+
+  // Subscribe to scoped level data when view level changes
+  useEffect(() => {
+    if (gameCode && playerViewLevel > 0) {
+      subscribeToCurrentLevel(gameCode, playerViewLevel);
+    }
+  }, [gameCode, playerViewLevel, subscribeToCurrentLevel]);
 
   // Redirect if no game state
   useEffect(() => {
@@ -300,9 +320,13 @@ const Game = () => {
       {/* Back to Level Select button */}
       <BackToLevelSelect onBack={handleBackToLevelSelect} />
       <main>
-        {currentViewLevel === 1 && <SuccessCriteria onNavigateToLevel={handleSelectLevel} />}
-        {currentViewLevel === 2 && <Level2 onNavigateToLevel={handleSelectLevel} />}
-        {currentViewLevel === 3 && <Level4 onNavigateToLevel={handleSelectLevel} />}
+        <LevelErrorBoundary>
+          <Suspense fallback={<LevelLoadingSpinner />}>
+            {currentViewLevel === 1 && <SuccessCriteria onNavigateToLevel={handleSelectLevel} />}
+            {currentViewLevel === 2 && <Level2 onNavigateToLevel={handleSelectLevel} />}
+            {currentViewLevel === 3 && <Level4 onNavigateToLevel={handleSelectLevel} />}
+          </Suspense>
+        </LevelErrorBoundary>
       </main>
     </>
   );

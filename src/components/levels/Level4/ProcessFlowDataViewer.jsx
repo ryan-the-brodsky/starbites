@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ArrowRight, ArrowDown, BarChart3, AlertTriangle, XCircle, CheckCircle2, ChevronDown, ChevronUp, FlaskConical, MessageCircle, X } from 'lucide-react';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Legend } from 'recharts';
 import { processSteps, testOptions, alternateValidationPaths } from '../../../data/processDefinitions';
@@ -24,8 +24,8 @@ const CustomTooltip = ({ active, payload }) => {
   return null;
 };
 
-// Scatter plot component for a single test
-const TestScatterPlot = ({ testId, scatterPoints, spec }) => {
+// Scatter plot component for a single test (memoized to prevent re-render when props unchanged)
+const TestScatterPlot = React.memo(({ testId, scatterPoints, spec }) => {
   if (!scatterPoints || scatterPoints.length === 0) return null;
 
   const specMin = spec.nominal - spec.variance;
@@ -38,8 +38,8 @@ const TestScatterPlot = ({ testId, scatterPoints, spec }) => {
   const yMin = minVal - padding;
   const yMax = maxVal + padding;
 
-  const inSpecPoints = scatterPoints.filter(p => p.inSpec);
-  const outOfSpecPoints = scatterPoints.filter(p => !p.inSpec);
+  const inSpecPoints = useMemo(() => scatterPoints.filter(p => p.inSpec), [scatterPoints]);
+  const outOfSpecPoints = useMemo(() => scatterPoints.filter(p => !p.inSpec), [scatterPoints]);
 
   return (
     <div className="h-72">
@@ -108,7 +108,7 @@ const TestScatterPlot = ({ testId, scatterPoints, spec }) => {
       </ResponsiveContainer>
     </div>
   );
-};
+});
 
 // Get step status based on data
 const getStepStatus = (stepId, generatedData, anomalies) => {
@@ -476,4 +476,4 @@ const ProcessFlowDataViewer = ({
   );
 };
 
-export default ProcessFlowDataViewer;
+export default React.memo(ProcessFlowDataViewer);

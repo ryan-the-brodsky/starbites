@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   createGameInDB,
   getGameFromDB,
@@ -8,9 +8,15 @@ import {
   updateMetaInDB,
   addPlayerToDB,
   subscribeToGame,
+  subscribeToLevel,
+  subscribeToMeta,
+  subscribeToPlayers,
+  subscribeToConnectionState,
   multiPathUpdate,
 } from '../firebase';
 import { useToast } from './ToastContext';
+import { createDebouncedWriter } from '../utils/debouncedWrite';
+import { retryWithBackoff } from '../utils/retry';
 
 const GameContext = createContext(null);
 
@@ -91,7 +97,9 @@ export const GameProvider = ({ children }) => {
   const [role, setRole] = useState(null);
   const [useFirebase, setUseFirebase] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const unsubscribeRef = useRef(null);
+  const [isConnected, setIsConnected] = useState(true);
+  // Scoped listeners: meta, players, and current level
+  const listenersRef = useRef({ meta: null, players: null, level: null, connection: null });
   // Stale listener gating: skip Firebase listener updates shortly after local writes
   const lastLocalWriteRef = useRef(0);
   const { addToast } = useToast();
@@ -166,23 +174,74 @@ export const GameProvider = ({ children }) => {
     }
   }, [useFirebase, persistGameFirebase, persistGameLocal]);
 
-  // Subscribe to game updates when joining/creating
+  // Cleanup all scoped listeners
+  const cleanupListeners = useCallback(() => {
+    Object.values(listenersRef.current).forEach(unsub => {
+      if (unsub) unsub();
+    });
+    listenersRef.current = { meta: null, players: null, level: null, connection: null };
+  }, []);
+
+  // Subscribe to connection state
+  useEffect(() => {
+    if (!useFirebase) return;
+    const unsub = subscribeToConnectionState((connected) => {
+      setIsConnected(connected);
+    });
+    listenersRef.current.connection = unsub;
+    return () => {
+      if (listenersRef.current.connection) {
+        listenersRef.current.connection();
+        listenersRef.current.connection = null;
+      }
+    };
+  }, [useFirebase]);
+
+  // Cleanup all listeners on unmount
+  useEffect(() => {
+    return () => cleanupListeners();
+  }, [cleanupListeners]);
+
+  // Subscribe to scoped game updates (meta + players) when joining/creating
   const subscribeToGameUpdates = useCallback((gameCode) => {
     if (!useFirebase) return;
 
-    // Unsubscribe from previous game
-    if (unsubscribeRef.current) {
-      unsubscribeRef.current();
+    // Unsubscribe from previous listeners
+    if (listenersRef.current.meta) listenersRef.current.meta();
+    if (listenersRef.current.players) listenersRef.current.players();
+    if (listenersRef.current.level) listenersRef.current.level();
+
+    // Subscribe to meta changes (with stale listener gating)
+    listenersRef.current.meta = subscribeToMeta(gameCode, (meta) => {
+      if (meta && Date.now() - lastLocalWriteRef.current >= 500) {
+        setGameState(prev => prev ? { ...prev, meta } : prev);
+      }
+    });
+
+    // Subscribe to player changes
+    listenersRef.current.players = subscribeToPlayers(gameCode, (players) => {
+      if (players && Date.now() - lastLocalWriteRef.current >= 500) {
+        setGameState(prev => prev ? { ...prev, players } : prev);
+      }
+    });
+  }, [useFirebase]);
+
+  // Subscribe to a specific level's data (called when navigating levels)
+  const subscribeToCurrentLevel = useCallback((gameCode, levelNum) => {
+    if (!useFirebase || !gameCode) return;
+
+    // Unsubscribe from previous level listener
+    if (listenersRef.current.level) {
+      listenersRef.current.level();
+      listenersRef.current.level = null;
     }
 
-    // Subscribe to new game (with stale listener gating)
-    unsubscribeRef.current = subscribeToGame(gameCode, (game) => {
-      if (game) {
-        // Skip listener updates if a local write happened recently to prevent stale overwrites
-        if (Date.now() - lastLocalWriteRef.current < 500) {
-          return;
-        }
-        setGameState(game);
+    if (levelNum < 1) return; // Level 0 = level select, no data to listen to
+
+    // Subscribe to the specific level
+    listenersRef.current.level = subscribeToLevel(gameCode, levelNum, (levelData) => {
+      if (levelData && Date.now() - lastLocalWriteRef.current >= 500) {
+        setGameState(prev => prev ? { ...prev, [`level${levelNum}`]: levelData } : prev);
       }
     });
   }, [useFirebase]);
@@ -378,7 +437,8 @@ export const GameProvider = ({ children }) => {
         // Extract level number from levelKey (e.g., 'level1' -> 1)
         const levelNum = parseInt(levelKey.replace('level', ''));
         if (!isNaN(levelNum)) {
-          updateLevelInDB(prev.gameCode, levelNum, updates).catch(err => handleFirebaseError(err));
+          retryWithBackoff(() => updateLevelInDB(prev.gameCode, levelNum, updates))
+            .catch(err => handleFirebaseError(err, () => updateLevelInDB(prev.gameCode, levelNum, updates)));
         }
       } else {
         persistGameLocal(newState);
@@ -441,7 +501,8 @@ export const GameProvider = ({ children }) => {
       };
 
       if (useFirebase && prev.gameCode) {
-        updateMetaInDB(prev.gameCode, { currentLevel: levelNum }).catch(err => handleFirebaseError(err));
+        retryWithBackoff(() => updateMetaInDB(prev.gameCode, { currentLevel: levelNum }))
+          .catch(err => handleFirebaseError(err));
       } else {
         persistGameLocal(newState);
       }
@@ -470,7 +531,8 @@ export const GameProvider = ({ children }) => {
       };
 
       if (useFirebase && prev.gameCode) {
-        addPlayerToDB(prev.gameCode, playerId, newState.players[playerId]).catch(err => handleFirebaseError(err));
+        retryWithBackoff(() => addPlayerToDB(prev.gameCode, playerId, newState.players[playerId]))
+          .catch(err => handleFirebaseError(err));
       } else {
         persistGameLocal(newState);
       }
@@ -499,7 +561,8 @@ export const GameProvider = ({ children }) => {
       };
 
       if (useFirebase && prev.gameCode) {
-        updateMetaInDB(prev.gameCode, { gameStarted: true }).catch(err => handleFirebaseError(err));
+        retryWithBackoff(() => updateMetaInDB(prev.gameCode, { gameStarted: true }))
+          .catch(err => handleFirebaseError(err));
       } else {
         persistGameLocal(newState);
       }
@@ -523,6 +586,9 @@ export const GameProvider = ({ children }) => {
     });
     return grouped;
   }, [gameState]);
+
+  // Debounced writer for criteria selections (200ms)
+  const criteriaWriterRef = useRef(null);
 
   // Update player's criteria selections in real-time (for consensus tracking)
   const updatePlayerCriteriaSelections = useCallback((selectedCriteriaIds) => {
@@ -559,16 +625,21 @@ export const GameProvider = ({ children }) => {
       };
 
       if (useFirebase && prev.gameCode) {
-        // Use path-based update to avoid overwriting other players' selections
+        // Debounced path-based update to avoid overwriting other players' selections
+        if (!criteriaWriterRef.current) {
+          criteriaWriterRef.current = createDebouncedWriter((gc, path, ids) => {
+            updateLevelPathInDB(gc, 1, path, ids).catch(err => handleFirebaseError(err));
+          }, 200);
+        }
         const path = `roleSelections/${playerFunctionalRole}/playerSelections/${playerId}`;
-        updateLevelPathInDB(prev.gameCode, 1, path, selectedCriteriaIds).catch(err => handleFirebaseError(err));
+        criteriaWriterRef.current.write(prev.gameCode, path, selectedCriteriaIds);
       } else {
         persistGameLocal(newState);
       }
 
       return newState;
     });
-  }, [playerId, gameState, useFirebase, persistGameLocal]);
+  }, [playerId, gameState, useFirebase, persistGameLocal, handleFirebaseError]);
 
   // Confirm criteria selection (only works when all players in role have same selections)
   const confirmCriteriaSelection = useCallback((selectedCriteriaData) => {
@@ -607,10 +678,10 @@ export const GameProvider = ({ children }) => {
       if (useFirebase && prev.gameCode) {
         // Atomic multi-path update for confirmedSelections and confirmedBy
         const basePath = `games/${prev.gameCode}/level1/roleSelections/${playerFunctionalRole}`;
-        multiPathUpdate({
+        retryWithBackoff(() => multiPathUpdate({
           [`${basePath}/confirmedSelections`]: selectedCriteriaData,
           [`${basePath}/confirmedBy`]: newConfirmedBy,
-        }).catch(err => handleFirebaseError(err));
+        })).catch(err => handleFirebaseError(err));
       } else {
         persistGameLocal(newState);
       }
@@ -623,11 +694,8 @@ export const GameProvider = ({ children }) => {
 
   // Leave current game
   const leaveGame = useCallback(() => {
-    // Unsubscribe from real-time updates
-    if (unsubscribeRef.current) {
-      unsubscribeRef.current();
-      unsubscribeRef.current = null;
-    }
+    // Unsubscribe from all real-time listeners
+    cleanupListeners();
 
     // Don't delete the game from database, just leave it
     // (Other players might still be playing)
@@ -637,18 +705,24 @@ export const GameProvider = ({ children }) => {
     setRole(null);
     localStorage.removeItem('joybites_current_game');
     localStorage.removeItem('joybites_role');
-  }, []);
+  }, [cleanupListeners]);
 
   // Get current player's functional role
   const functionalRole = gameState?.players?.[playerId]?.functionalRole || null;
 
-  const value = {
+  const isInGame = !!gameState;
+  const isCommander = role === 'commander';
+  const isCrew = role === 'crew';
+  const gameStartedVal = gameState?.meta?.gameStarted || false;
+
+  const value = useMemo(() => ({
     gameState,
     playerId,
     role,
     functionalRole,
     useFirebase,
     isLoading,
+    isConnected,
     createGame,
     joinGame,
     leaveGame,
@@ -661,11 +735,18 @@ export const GameProvider = ({ children }) => {
     getPlayersByRole,
     updatePlayerCriteriaSelections,
     confirmCriteriaSelection,
-    isInGame: !!gameState,
-    isCommander: role === 'commander',
-    isCrew: role === 'crew',
-    gameStarted: gameState?.meta?.gameStarted || false,
-  };
+    subscribeToCurrentLevel,
+    isInGame,
+    isCommander,
+    isCrew,
+    gameStarted: gameStartedVal,
+  }), [
+    gameState, playerId, role, functionalRole, useFirebase, isLoading, isConnected,
+    createGame, joinGame, leaveGame, updateGameState, updateLevelState, completeLevel,
+    navigateToLevel, updatePlayerRole, startGame, getPlayersByRole,
+    updatePlayerCriteriaSelections, confirmCriteriaSelection, subscribeToCurrentLevel,
+    isInGame, isCommander, isCrew, gameStartedVal,
+  ]);
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 };
