@@ -407,9 +407,14 @@ const generateFakeData = (samplingPlan, successCriteria, seed = 42) => {
 
           if (isAnomaly) {
             hasAnomalyInGroup = true;
-            // Generate out-of-spec value
+            // Generate out-of-spec value — can be warning or critical severity
             const direction = seededRandom() > 0.5 ? 1 : -1;
-            value = spec.nominal + direction * (spec.variance + seededRandom() * spec.failRange * 0.5);
+            // ~40% of anomalies will be critical (deviation > failRange)
+            const severityRoll = seededRandom();
+            const deviation = severityRoll < 0.4
+              ? spec.failRange + seededRandom() * spec.failRange * 0.5  // Critical: exceeds failRange
+              : spec.variance + seededRandom() * (spec.failRange - spec.variance) * 0.8; // Warning: within failRange
+            value = spec.nominal + direction * deviation;
             anomalyValue = value;
           } else {
             // Normal value within spec with some natural variation
@@ -459,6 +464,39 @@ const generateFakeData = (samplingPlan, successCriteria, seed = 42) => {
       });
     });
   });
+
+  // Guarantee at least one critical anomaly exists so teams must think critically
+  const hasCritical = anomalies.some(a => a.severity === 'critical');
+  if (!hasCritical && anomalies.length > 0) {
+    // Promote the first anomaly to critical by recalculating its value
+    const target = anomalies[0];
+    const spec = testSpecs[target.test];
+    if (spec) {
+      const direction = parseFloat(target.value) >= spec.nominal ? 1 : -1;
+      const criticalValue = spec.nominal + direction * (spec.failRange + spec.failRange * 0.3);
+      target.value = criticalValue.toFixed(1);
+      target.severity = 'critical';
+
+      // Update the corresponding scatter data point and summary
+      const stepScatter = scatterData[target.step]?.[target.test];
+      if (stepScatter) {
+        const outOfSpecPoint = stepScatter.find(p => !p.inSpec);
+        if (outOfSpecPoint) {
+          outOfSpecPoint.y = parseFloat(criticalValue.toFixed(2));
+        }
+      }
+      const tpData = data[target.step]?.[target.test]?.[target.timePoint];
+      if (tpData?.samples) {
+        const outOfSpecSample = tpData.samples.find(s => !s.inSpec);
+        if (outOfSpecSample) {
+          outOfSpecSample.y = parseFloat(criticalValue.toFixed(2));
+        }
+        // Recalculate average
+        const avg = tpData.samples.reduce((sum, s) => sum + s.y, 0) / tpData.samples.length;
+        tpData.value = parseFloat(avg.toFixed(1));
+      }
+    }
+  }
 
   return { data, scatterData, anomalies, uncoveredCriteria };
 };
@@ -546,6 +584,9 @@ const Level4 = ({ onNavigateToLevel }) => {
   const [showPreviousWork, setShowPreviousWork] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showLevelComplete, setShowLevelComplete] = useState(false);
+  const [expandedAssessments, setExpandedAssessments] = useState({});
+  const [expandedDisasters, setExpandedDisasters] = useState({});
+  const [expandedMissingRoles, setExpandedMissingRoles] = useState({});
 
   // Track if we're currently in editing mode (returning from sampling plan)
   const [isEditingMode, setIsEditingMode] = useState(false);
@@ -1219,65 +1260,87 @@ const Level4 = ({ onNavigateToLevel }) => {
                   <span className="text-purple-400"> Note: Some criteria were assessed correctly but lack statistical confidence at packaging/post-packaging steps (n&lt;{MIN_SAMPLES_FOR_STATISTICAL_VALIDITY} samples required for packaging and QC release steps only).</span>
                 )}
               </p>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {disasters.map(({ criteria, disaster, userAnswer, correct, isStatisticalWarning }, index) => {
                   const styles = severityStyles[disaster.severity] || severityStyles.moderate;
+                  const isExpanded = expandedDisasters[criteria.id];
                   return (
                     <div
                       key={criteria.id}
-                      className={`${styles.bg} border ${styles.border} rounded-lg p-4`}
+                      className={`${styles.bg} border ${styles.border} rounded-lg`}
                     >
-                      <div className="flex items-start justify-between gap-3 mb-2">
-                        <h4 className={`font-bold ${styles.text}`}>{disaster.headline}</h4>
-                        <div className="flex gap-2 flex-shrink-0">
-                          {isStatisticalWarning && (
-                            <span className="text-xs px-2 py-1 rounded bg-purple-600 text-white uppercase">
-                              n&lt;30
-                            </span>
-                          )}
-                          <span className={`text-xs px-2 py-1 rounded ${styles.badge} text-white uppercase`}>
-                            {disaster.severity}
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-sm text-slate-300 mb-3">{disaster.description}</p>
-
-                      {/* Show sample size details for statistical warnings */}
-                      {isStatisticalWarning && correct.sampleDetails?.length > 0 && (
-                        <div className="bg-purple-900/30 border border-purple-700/50 rounded p-2 mb-3">
-                          <p className="text-xs text-purple-300 font-medium mb-1">
-                            Sample Size Details (Minimum required: {MIN_SAMPLES_FOR_STATISTICAL_VALIDITY})
+                      {/* Clickable header — always visible */}
+                      <button
+                        onClick={() => setExpandedDisasters(prev => ({ ...prev, [criteria.id]: !prev[criteria.id] }))}
+                        className="w-full p-4 flex items-center gap-3 text-left hover:bg-white/5 transition-colors rounded-lg"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-3">
+                            <h4 className={`font-bold ${styles.text}`}>{disaster.headline}</h4>
+                            <div className="flex gap-2 flex-shrink-0">
+                              {isStatisticalWarning && (
+                                <span className="text-xs px-2 py-1 rounded bg-purple-600 text-white uppercase">
+                                  n&lt;30
+                                </span>
+                              )}
+                              <span className={`text-xs px-2 py-1 rounded ${styles.badge} text-white uppercase`}>
+                                {disaster.severity}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-xs text-slate-400 mt-1 truncate">
+                            Criteria: {criteria.text}
                           </p>
-                          <div className="text-xs space-y-0.5">
-                            {correct.sampleDetails.map((s, i) => (
-                              <p key={i} className={s.meetsMinimum ? 'text-green-400' : 'text-red-400'}>
-                                - {s.description}: n={s.count} {s.meetsMinimum ? '(OK)' : `(need ${MIN_SAMPLES_FOR_STATISTICAL_VALIDITY - s.count} more)`}
+                        </div>
+                        {isExpanded
+                          ? <ChevronUp className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                          : <ChevronDown className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                        }
+                      </button>
+
+                      {/* Expandable details */}
+                      {isExpanded && (
+                        <div className="px-4 pb-4 pt-0">
+                          <p className="text-sm text-slate-300 mb-3">{disaster.description}</p>
+
+                          {/* Show sample size details for statistical warnings */}
+                          {isStatisticalWarning && correct.sampleDetails?.length > 0 && (
+                            <div className="bg-purple-900/30 border border-purple-700/50 rounded p-2 mb-3">
+                              <p className="text-xs text-purple-300 font-medium mb-1">
+                                Sample Size Details (Minimum required: {MIN_SAMPLES_FOR_STATISTICAL_VALIDITY})
                               </p>
-                            ))}
+                              <div className="text-xs space-y-0.5">
+                                {correct.sampleDetails.map((s, i) => (
+                                  <p key={i} className={s.meetsMinimum ? 'text-green-400' : 'text-red-400'}>
+                                    - {s.description}: n={s.count} {s.meetsMinimum ? '(OK)' : `(need ${MIN_SAMPLES_FOR_STATISTICAL_VALIDITY - s.count} more)`}
+                                  </p>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="bg-slate-900/50 rounded p-2 text-xs">
+                            <p className="text-slate-400 mb-1">
+                              <strong>Criteria:</strong> {criteria.text}
+                            </p>
+                            <p className="text-slate-500">
+                              You said: <span className={userAnswer === 'yes' ? 'text-green-400' : userAnswer === 'no' ? 'text-red-400' : 'text-amber-400'}>
+                                {userAnswer === 'yes' ? 'Met' : userAnswer === 'no' ? 'Not Met' : 'Insufficient Data'}
+                              </span>
+                              {isStatisticalWarning ? (
+                                <span className="text-purple-400"> - Answer correct but data not statistically valid</span>
+                              ) : (
+                                <>
+                                  {' -> '}
+                                  Correct: <span className="text-cyan-400">
+                                    {correct.met === 'yes' ? 'Met' : correct.met === 'no' ? 'Not Met' : 'Insufficient Data'}
+                                  </span>
+                                </>
+                              )}
+                            </p>
                           </div>
                         </div>
                       )}
-
-                      <div className="bg-slate-900/50 rounded p-2 text-xs">
-                        <p className="text-slate-400 mb-1">
-                          <strong>Criteria:</strong> {criteria.text}
-                        </p>
-                        <p className="text-slate-500">
-                          You said: <span className={userAnswer === 'yes' ? 'text-green-400' : userAnswer === 'no' ? 'text-red-400' : 'text-amber-400'}>
-                            {userAnswer === 'yes' ? 'Met' : userAnswer === 'no' ? 'Not Met' : 'Insufficient Data'}
-                          </span>
-                          {isStatisticalWarning ? (
-                            <span className="text-purple-400"> - Answer correct but data not statistically valid</span>
-                          ) : (
-                            <>
-                              {' -> '}
-                              Correct: <span className="text-cyan-400">
-                                {correct.met === 'yes' ? 'Met' : correct.met === 'no' ? 'Not Met' : 'Insufficient Data'}
-                              </span>
-                            </>
-                          )}
-                        </p>
-                      </div>
                     </div>
                   );
                 })}
@@ -1296,7 +1359,7 @@ const Level4 = ({ onNavigateToLevel }) => {
                 Your team was missing {missingRoles.length} functional role{missingRoles.length > 1 ? 's' : ''}.
                 Without their expertise, critical areas were not properly covered during the trial.
               </p>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {missingRoles.map(roleKey => {
                   const roleInfo = FUNCTIONAL_ROLE_INFO[roleKey];
                   if (!roleInfo) return null;
@@ -1312,37 +1375,57 @@ const Level4 = ({ onNavigateToLevel }) => {
                         : ['Line efficiency', 'Operator training', 'Equipment compatibility']
                   );
 
+                  const isExpanded = expandedMissingRoles[roleKey];
+
                   return (
-                    <div key={roleKey} className="bg-orange-900/30 border border-orange-700/50 rounded-lg p-4">
-                      <h4 className="font-bold text-orange-300 mb-1">
-                        {roleInfo.name} — Not Represented on Team
-                      </h4>
-                      <p className="text-xs text-slate-400 mb-2">
-                        Responsible for: {roleInfo.focus}
-                      </p>
-                      <p className="text-sm text-orange-200 mb-3">
-                        {roleInfo.consequence}
-                      </p>
-                      {affectedCriteria.length > 0 && (
-                        <div className="bg-slate-900/50 rounded p-2">
-                          <p className="text-xs text-slate-500 mb-1">Affected criteria in your plan:</p>
-                          {affectedCriteria.map(c => (
-                            <p key={c.id} className="text-xs text-orange-400">• {c.text}</p>
-                          ))}
+                    <div key={roleKey} className="bg-orange-900/30 border border-orange-700/50 rounded-lg">
+                      {/* Clickable header — always visible */}
+                      <button
+                        onClick={() => setExpandedMissingRoles(prev => ({ ...prev, [roleKey]: !prev[roleKey] }))}
+                        className="w-full p-4 flex items-center gap-3 text-left hover:bg-white/5 transition-colors rounded-lg"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-orange-300">
+                            {roleInfo.name} — Not Represented on Team
+                          </h4>
+                          <p className="text-xs text-slate-400 mt-1">
+                            Responsible for: {roleInfo.focus}
+                          </p>
                         </div>
-                      )}
-                      {affectedCriteria.length === 0 && (
-                        <div className="bg-slate-900/50 rounded p-2">
-                          <p className="text-xs text-slate-500 mb-1">
-                            Because {roleInfo.name} was not on the team, these areas were never included in your success criteria:
+                        {isExpanded
+                          ? <ChevronUp className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                          : <ChevronDown className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                        }
+                      </button>
+
+                      {/* Expandable details */}
+                      {isExpanded && (
+                        <div className="px-4 pb-4 pt-0">
+                          <p className="text-sm text-orange-200 mb-3">
+                            {roleInfo.consequence}
                           </p>
-                          {unselectedRoleCriteria.map((item, i) => (
-                            <p key={i} className="text-xs text-orange-400">• {item}</p>
-                          ))}
-                          <p className="text-xs text-orange-300 mt-2 italic">
-                            This means potential failures in {roleInfo.focus} were invisible to the team —
-                            the measurements were never taken, so problems could not be detected until production.
-                          </p>
+                          {affectedCriteria.length > 0 && (
+                            <div className="bg-slate-900/50 rounded p-2">
+                              <p className="text-xs text-slate-500 mb-1">Affected criteria in your plan:</p>
+                              {affectedCriteria.map(c => (
+                                <p key={c.id} className="text-xs text-orange-400">• {c.text}</p>
+                              ))}
+                            </div>
+                          )}
+                          {affectedCriteria.length === 0 && (
+                            <div className="bg-slate-900/50 rounded p-2">
+                              <p className="text-xs text-slate-500 mb-1">
+                                Because {roleInfo.name} was not on the team, these areas were never included in your success criteria:
+                              </p>
+                              {unselectedRoleCriteria.map((item, i) => (
+                                <p key={i} className="text-xs text-orange-400">• {item}</p>
+                              ))}
+                              <p className="text-xs text-orange-300 mt-2 italic">
+                                This means potential failures in {roleInfo.focus} were invisible to the team —
+                                the measurements were never taken, so problems could not be detected until production.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1354,47 +1437,94 @@ const Level4 = ({ onNavigateToLevel }) => {
 
           {/* Detailed Results */}
           <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700 mb-6">
-            <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <Target className="w-5 h-5 text-cyan-400" />
-              Detailed Assessment Results
-            </h3>
-            <div className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold flex items-center gap-2">
+                <Target className="w-5 h-5 text-cyan-400" />
+                Detailed Assessment Results
+              </h3>
+              <button
+                onClick={() => {
+                  const allIds = selectedCriteria.filter(c => c?.id).map(c => c.id);
+                  const allExpanded = allIds.every(id => expandedAssessments[id]);
+                  if (allExpanded) {
+                    setExpandedAssessments({});
+                  } else {
+                    const expanded = {};
+                    allIds.forEach(id => { expanded[id] = true; });
+                    setExpandedAssessments(expanded);
+                  }
+                }}
+                className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1"
+              >
+                {selectedCriteria.filter(c => c?.id).every(c => expandedAssessments[c.id])
+                  ? <><ChevronUp className="w-4 h-4" /> Collapse All</>
+                  : <><ChevronDown className="w-4 h-4" /> Expand All</>
+                }
+              </button>
+            </div>
+            <div className="space-y-3">
               {selectedCriteria.map((criteria, index) => {
                 if (!criteria?.id) return null;
                 const userAnswer = localAssessments[criteria.id];
                 const correct = correctAnswers[criteria.id];
                 const isCorrect = userAnswer === correct.met;
+                const isExpanded = expandedAssessments[criteria.id];
 
                 return (
                   <div
                     key={criteria.id}
-                    className={`p-4 rounded-lg border ${
+                    className={`rounded-lg border ${
                       isCorrect
                         ? 'bg-green-900/20 border-green-600'
                         : 'bg-red-900/20 border-red-600'
                     }`}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 mt-0.5">
+                    {/* Clickable header — always visible */}
+                    <button
+                      onClick={() => setExpandedAssessments(prev => ({ ...prev, [criteria.id]: !prev[criteria.id] }))}
+                      className="w-full p-4 flex items-center gap-3 text-left hover:bg-white/5 transition-colors rounded-lg"
+                    >
+                      <div className="flex-shrink-0">
                         {isCorrect ? (
                           <CheckCircle2 className="w-6 h-6 text-green-400" />
                         ) : (
                           <XCircle className="w-6 h-6 text-red-400" />
                         )}
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between gap-4 mb-2">
-                          <p className="text-sm text-slate-200 font-medium">
-                            <span className="text-cyan-400 font-mono mr-2">{index + 1}.</span>
-                            {criteria.text}
-                          </p>
-                          <span className={`text-xs px-2 py-1 rounded flex-shrink-0 ${
-                            isCorrect ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-                          }`}>
-                            {isCorrect ? 'CORRECT' : 'INCORRECT'}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-slate-200 font-medium truncate">
+                          <span className="text-cyan-400 font-mono mr-2">{index + 1}.</span>
+                          {criteria.text}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-xs text-slate-400">
+                            You said: <span className={isCorrect ? 'text-green-400' : 'text-red-400'}>
+                              {userAnswer === 'yes' ? 'Met' : userAnswer === 'no' ? 'Not Met' : 'Insufficient Data'}
+                            </span>
                           </span>
+                          {!isCorrect && (
+                            <span className="text-xs text-slate-400">
+                              Correct: <span className="text-cyan-400">
+                                {correct.met === 'yes' ? 'Met' : correct.met === 'no' ? 'Not Met' : 'Insufficient Data'}
+                              </span>
+                            </span>
+                          )}
                         </div>
+                      </div>
+                      <span className={`text-xs px-2 py-1 rounded flex-shrink-0 ${
+                        isCorrect ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+                      }`}>
+                        {isCorrect ? 'CORRECT' : 'INCORRECT'}
+                      </span>
+                      {isExpanded
+                        ? <ChevronUp className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                        : <ChevronDown className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                      }
+                    </button>
 
+                    {/* Expandable details */}
+                    {isExpanded && (
+                      <div className="px-4 pb-4 pt-0 ml-9">
                         {/* Answer comparison */}
                         <div className="grid md:grid-cols-2 gap-2 mb-3 text-sm">
                           <div className={`p-2 rounded ${isCorrect ? 'bg-green-900/30' : 'bg-slate-900/50'}`}>
@@ -1477,7 +1607,7 @@ const Level4 = ({ onNavigateToLevel }) => {
                           )}
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 );
               })}
