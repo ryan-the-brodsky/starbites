@@ -764,12 +764,14 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
                     className={`p-3 sm:p-4 rounded-lg border-2 cursor-pointer transition-all ${
                       showAlignment && alignment === 'disputed'
                         ? 'border-red-500 bg-red-900/30 ring-2 ring-red-500/60'
-                        : isSelected
-                          ? `${colors.border} ${colors.bg}`
-                          : isDisabled
-                            ? 'border-slate-700 bg-slate-900/30 opacity-50 cursor-not-allowed'
-                            : 'border-slate-700 bg-slate-900/50 hover:border-slate-500 hover:bg-slate-800/50'
-                    } ${showAlignment && alignment === 'aligned' ? 'ring-2 ring-green-500/60' : ''}`}
+                        : showAlignment && alignment === 'aligned'
+                          ? 'border-green-500 bg-green-900/30 ring-2 ring-green-500/60'
+                          : isSelected
+                            ? `${colors.border} ${colors.bg}`
+                            : isDisabled
+                              ? 'border-slate-700 bg-slate-900/30 opacity-50 cursor-not-allowed'
+                              : 'border-slate-700 bg-slate-900/50 hover:border-slate-500 hover:bg-slate-800/50'
+                    }`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
