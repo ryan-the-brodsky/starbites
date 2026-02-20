@@ -299,10 +299,8 @@ const getDisasterForError = (userAnswer, correctAnswer, criteria) => {
     return { ...productionDisasters.statisticallyUnsound.default, type: 'statisticallyUnsound', sampleDetails: undersampledTests };
   }
 
-  // User said "Not Met" but it was actually "Met" - false negative
-  if (userAnswer === 'no' && correctAnswer.met === 'yes') {
-    return { ...productionDisasters.falseNegative, type: 'falseNegative' };
-  }
+  // User said "Not Met" but it was actually "Met" - being cautious is fine, no penalty
+  // We don't want to punish players for erring on the side of caution.
 
   // User said "Insufficient Data" but there was enough data
   if (userAnswer === 'insufficient' && (correctAnswer.met === 'yes' || correctAnswer.met === 'no')) {
@@ -1003,6 +1001,10 @@ const Level4 = ({ onNavigateToLevel }) => {
         (userAnswer === 'no' && correct.met === 'no')
       ) {
         score += 150;
+        correctCount++;
+      } else if (userAnswer === 'no' && correct.met === 'yes') {
+        // Being cautious (saying "Not Met" when it was actually "Met") is not penalized
+        score += 100;
         correctCount++;
       }
     });
