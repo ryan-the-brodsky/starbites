@@ -8,14 +8,8 @@ import ProcessFlowDataViewer from './ProcessFlowDataViewer';
 import LevelComplete from '../../common/LevelComplete';
 
 // Minimum sample count for statistical validity (internal policy)
-// Only applies to packaging and post-packaging steps, NOT in-process or raw materials
+// Applies to ALL steps - a minimum of 30 samples is required for statistical confidence
 const MIN_SAMPLES_FOR_STATISTICAL_VALIDITY = 30;
-
-// Steps where the 30-sample minimum applies
-const STEPS_REQUIRING_MIN_SAMPLES = ['packaging', 'release', 'shelf-life-validation'];
-
-// Check if a step requires the minimum sample size
-const stepRequiresMinSamples = (stepId) => STEPS_REQUIRING_MIN_SAMPLES.includes(stepId);
 
 // Functional role descriptions for missing crew consequences
 const FUNCTIONAL_ROLE_INFO = {
@@ -832,15 +826,12 @@ const Level4 = ({ onNavigateToLevel }) => {
         });
 
         if (testSampleCount > 0) {
-          // Only require 30-sample minimum for packaging and post-packaging steps
-          const requiresMinimum = stepRequiresMinSamples(m.step);
           sampleDetails.push({
             step: m.step,
             test: m.test,
             description: m.description,
             count: testSampleCount,
-            meetsMinimum: requiresMinimum ? testSampleCount >= MIN_SAMPLES_FOR_STATISTICAL_VALIDITY : true,
-            requiresMinimum,
+            meetsMinimum: testSampleCount >= MIN_SAMPLES_FOR_STATISTICAL_VALIDITY,
           });
           totalSamples += testSampleCount;
         }
@@ -870,16 +861,8 @@ const Level4 = ({ onNavigateToLevel }) => {
         return;
       }
 
-      // Check statistical validity - only packaging and post-packaging steps need 30+ samples
-      // In-process and raw material steps do NOT require the 30-sample minimum
-      const allTestsMeetMinimum = sampleDetails.every(s => {
-        // Only enforce minimum for packaging and post-packaging steps
-        if (stepRequiresMinSamples(s.step)) {
-          return s.meetsMinimum;
-        }
-        // In-process/raw material steps: any samples count as sufficient
-        return true;
-      });
+      // Check statistical validity - ALL steps require 30+ samples for statistical confidence
+      const allTestsMeetMinimum = sampleDetails.every(s => s.meetsMinimum);
       const statisticallySound = allTestsMeetMinimum && sampleDetails.length > 0;
 
       // Check if any relevant anomalies exist
@@ -933,12 +916,12 @@ const Level4 = ({ onNavigateToLevel }) => {
         const notesText = hasNotes ? ` Notes: ${notes.join('. ')}` : '';
 
         answers[criteria.id] = {
-          met: 'yes',
-          reason: hasNotes
-            ? (minorAnomalies.length > 0
-                ? 'Met with minor deviations noted'
-                : 'Met but sample size below minimum (n<30)')
-            : 'All measurements within specification',
+          met: statisticallySound ? 'yes' : 'insufficient',
+          reason: !statisticallySound
+            ? `Not statistically significant — sample size below minimum (n<${MIN_SAMPLES_FOR_STATISTICAL_VALIDITY})`
+            : hasNotes
+              ? 'Met with minor deviations noted'
+              : 'All measurements within specification',
           details: `All collected data for this criteria (${collectedTests.map(t => t.description).join(', ')}) was within acceptable ranges. The criteria was MET.${notesText}`,
           requiredTests,
           collectedTests,
@@ -1567,17 +1550,17 @@ const Level4 = ({ onNavigateToLevel }) => {
                               {/* Sample size details */}
                               {correct.sampleDetails?.length > 0 && (
                                 <div className="mt-2">
-                                  <p className={`text-xs font-medium ${correct.statisticallySound ? 'text-green-500' : 'text-purple-400'}`}>
+                                  <p className={`text-xs font-medium ${correct.statisticallySound ? 'text-green-500' : 'text-red-400'}`}>
                                     {correct.statisticallySound
                                       ? `Statistically valid (total n=${correct.totalSamples})`
-                                      : `Sample size below minimum for packaging/post-packaging steps (total n=${correct.totalSamples}, need n>=${MIN_SAMPLES_FOR_STATISTICAL_VALIDITY} per test at packaging or later)`
+                                      : `Not statistically significant (total n=${correct.totalSamples}, need n>=${MIN_SAMPLES_FOR_STATISTICAL_VALIDITY} per test)`
                                     }
                                   </p>
                                   {!correct.statisticallySound && (
                                     <div className="mt-1 space-y-0.5">
                                       {correct.sampleDetails.map((s, i) => (
                                         <p key={i} className={`text-xs ${s.meetsMinimum ? 'text-slate-500' : 'text-red-400'}`}>
-                                          - {s.description}: n={s.count} {s.requiresMinimum && !s.meetsMinimum ? `(packaging/post-packaging: need ${MIN_SAMPLES_FOR_STATISTICAL_VALIDITY - s.count} more)` : s.requiresMinimum ? '' : '(in-process: no minimum required)'}
+                                          - {s.description}: n={s.count} {!s.meetsMinimum ? `(need ${MIN_SAMPLES_FOR_STATISTICAL_VALIDITY - s.count} more)` : ''}
                                         </p>
                                       ))}
                                     </div>
@@ -1775,14 +1758,15 @@ const Level4 = ({ onNavigateToLevel }) => {
                       )}
                       {!isUncovered && hasInsufficientSamples && (
                         <div className="mt-1">
-                          <p className="text-xs text-purple-400 flex items-center gap-1">
-                            Sample size below minimum for packaging/post-packaging steps (n&lt;{MIN_SAMPLES_FOR_STATISTICAL_VALIDITY})
+                          <p className="text-xs text-red-400 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            Not statistically significant — minimum {MIN_SAMPLES_FOR_STATISTICAL_VALIDITY} samples required
                           </p>
                           <div className="text-xs text-slate-500 ml-4">
-                            {correctData.sampleDetails.filter(s => s.requiresMinimum).map((s, i) => (
-                              <span key={i} className={s.meetsMinimum ? '' : 'text-purple-400'}>
+                            {correctData.sampleDetails.filter(s => !s.meetsMinimum).map((s, i) => (
+                              <span key={i} className="text-red-400">
                                 {s.description}: n={s.count}
-                                {i < correctData.sampleDetails.filter(s2 => s2.requiresMinimum).length - 1 ? ' - ' : ''}
+                                {i < correctData.sampleDetails.filter(s2 => !s2.meetsMinimum).length - 1 ? ' - ' : ''}
                               </span>
                             ))}
                           </div>

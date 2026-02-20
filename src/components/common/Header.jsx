@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Rocket, Star, Users, Trophy, BookOpen, LogOut, Menu, X } from 'lucide-react';
 import { useGame } from '../../contexts/GameContext';
@@ -6,11 +6,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import ResourcesPanel from './ResourcesPanel';
 import { getPlayerCharacter } from '../../data/characters';
 
+const Leaderboard = lazy(() => import('../../pages/Leaderboard'));
+
 const Header = () => {
   const navigate = useNavigate();
   const { gameState, leaveGame, role, playerId, functionalRole, isConnected, useFirebase } = useGame();
   const { logout } = useAuth();
   const [showResources, setShowResources] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
   // Get player's character
@@ -111,13 +114,13 @@ const Header = () => {
               </button>
 
               {/* Leaderboard Button */}
-              <Link
-                to="/leaderboard"
+              <button
+                onClick={() => setShowLeaderboard(true)}
                 className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 rounded px-3 py-2 border border-slate-700 transition-colors"
               >
                 <Trophy className="w-4 h-4 text-amber-400" />
                 <span className="hidden sm:inline text-sm text-slate-300">Leaderboard</span>
-              </Link>
+              </button>
 
               {/* Mobile Menu Toggle */}
               <button
@@ -181,6 +184,22 @@ const Header = () => {
 
       {/* Resources Panel Modal */}
       <ResourcesPanel isOpen={showResources} onClose={() => setShowResources(false)} />
+
+      {/* Leaderboard Modal */}
+      {showLeaderboard && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowLeaderboard(false)} />
+          <div className="relative min-h-screen">
+            <Suspense fallback={
+              <div className="min-h-screen flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-500"></div>
+              </div>
+            }>
+              <Leaderboard onClose={() => setShowLeaderboard(false)} />
+            </Suspense>
+          </div>
+        </div>
+      )}
     </>
   );
 };

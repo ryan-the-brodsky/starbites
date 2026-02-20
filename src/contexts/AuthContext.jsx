@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = (password) => {
     const sitePassword = import.meta.env.VITE_SITE_PASSWORD;
-    if (password === sitePassword) {
+    if (password.toLowerCase() === sitePassword.toLowerCase()) {
       setIsAuthenticated(true);
       localStorage.setItem('joybites_auth', 'true');
       return true;

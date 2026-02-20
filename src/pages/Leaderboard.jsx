@@ -4,7 +4,7 @@ import { Trophy, ArrowLeft, Medal, Star, Rocket } from 'lucide-react';
 import { useGame } from '../contexts/GameContext';
 import { getAllGamesFromDB } from '../firebase';
 
-const Leaderboard = () => {
+const Leaderboard = ({ onClose }) => {
   const { gameState } = useGame();
   const [leaderboard, setLeaderboard] = useState([]);
 
@@ -53,13 +53,23 @@ const Leaderboard = () => {
       {/* Header */}
       <div className="bg-slate-900/80 border-b border-slate-700">
         <div className="max-w-4xl mx-auto px-4 py-4">
-          <Link
-            to={gameState?.meta?.gameCode ? `/game/${gameState.meta.gameCode}` : '/'}
-            className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            {gameState?.meta?.gameCode ? 'Back to Game' : 'Back to Home'}
-          </Link>
+          {onClose ? (
+            <button
+              onClick={onClose}
+              className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-4"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Game
+            </button>
+          ) : (
+            <Link
+              to={gameState?.meta?.gameCode ? `/game/${gameState.meta.gameCode}` : '/'}
+              className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-4"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              {gameState?.meta?.gameCode ? 'Back to Game' : 'Back to Home'}
+            </Link>
+          )}
           <div className="flex items-center gap-4">
             <div className="p-3 bg-amber-500/20 rounded-xl">
               <Trophy className="w-10 h-10 text-amber-400" />
