@@ -93,7 +93,7 @@ const CrewIntro = ({ onContinue }) => {
   const [showCrew, setShowCrew] = useState(false);
   const [animationStep, setAnimationStep] = useState(0);
 
-  const myCharacter = getPlayerCharacter(playerId, functionalRole);
+  const myCharacter = getPlayerCharacter(playerId, functionalRole, gameState?.players);
   const allPlayers = Object.entries(gameState?.players || {});
   const otherPlayers = allPlayers.filter(([pid]) => pid !== playerId);
 
@@ -172,7 +172,7 @@ const CrewIntro = ({ onContinue }) => {
 
             <div className="flex flex-wrap justify-center gap-6">
               {otherPlayers.map(([pid, playerData], idx) => {
-                const playerCharacter = getPlayerCharacter(pid, playerData.functionalRole);
+                const playerCharacter = getPlayerCharacter(pid, playerData.functionalRole, gameState?.players);
                 const playerRoleInfo = ROLE_INFO[playerData.functionalRole] || ROLE_INFO.productDev;
                 const PlayerRoleIcon = playerRoleInfo.icon;
 

@@ -129,7 +129,8 @@ export const playerIdToSeed = (playerId) => {
 };
 
 // Get character for a player by their ID and role
-export const getPlayerCharacter = (playerId, functionalRole) => {
+// When allPlayers is provided, ensures unique character names within each role
+export const getPlayerCharacter = (playerId, functionalRole, allPlayers) => {
   if (!functionalRole) {
     return {
       name: 'Recruit',
@@ -142,6 +143,30 @@ export const getPlayerCharacter = (playerId, functionalRole) => {
       badge: '?',
     };
   }
+
+  // When allPlayers is provided, assign unique characters by sorted order within role
+  if (allPlayers) {
+    const pool = CHARACTER_POOLS[functionalRole];
+    if (pool && pool.length > 0) {
+      // Get all player IDs with the same functional role, sorted for deterministic order
+      const sameRolePlayerIds = Object.entries(allPlayers)
+        .filter(([, p]) => p.functionalRole === functionalRole)
+        .map(([id]) => id)
+        .sort();
+
+      const playerIndex = sameRolePlayerIds.indexOf(playerId);
+      if (playerIndex >= 0) {
+        const character = pool[playerIndex % pool.length];
+        return {
+          ...character,
+          style: ASTRONAUT_STYLES[functionalRole],
+          face: FACE_EXPRESSIONS[character.faceIdx],
+          badge: HELMET_BADGES[character.badgeIdx],
+        };
+      }
+    }
+  }
+
   const seed = playerIdToSeed(playerId);
   return getCharacterForPlayer(functionalRole, seed);
 };

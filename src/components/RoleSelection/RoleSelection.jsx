@@ -237,7 +237,7 @@ const RoleSelection = () => {
           <div className="text-center mb-8">
             {/* Character Card */}
             {(() => {
-              const character = getPlayerCharacter(playerId, functionalRole);
+              const character = getPlayerCharacter(playerId, functionalRole, gameState?.players);
               const role = ROLES.find(r => r.id === functionalRole);
               const colors = colorClasses[role?.color || 'cyan'];
               return (
@@ -331,7 +331,7 @@ const RoleSelection = () => {
                   {players.length > 0 ? (
                     <ul className="space-y-2">
                       {players.map((player) => {
-                        const character = getPlayerCharacter(player.id, role.id);
+                        const character = getPlayerCharacter(player.id, role.id, gameState?.players);
                         return (
                           <li key={player.id} className="text-sm text-slate-300 flex items-center gap-2">
                             <span className="text-lg">{character.emoji}</span>

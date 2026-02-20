@@ -466,7 +466,7 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
                           const playerSels = roleSelectionsData.playerSelections?.[player.id] || [];
                           const isMe = player.id === playerId;
                           const hasConfirmedRole = (roleSelectionsData.confirmedBy || []).includes(player.id);
-                          const character = getPlayerCharacter(player.id, roleKey);
+                          const character = getPlayerCharacter(player.id, roleKey, gameState?.players);
                           return (
                             <div key={player.id} className="space-y-1">
                               <div className="flex items-center justify-between text-xs">
@@ -557,7 +557,7 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
             <div className="space-y-3">
               {/* My selections */}
               {(() => {
-                const myCharacter = getPlayerCharacter(playerId, functionalRole);
+                const myCharacter = getPlayerCharacter(playerId, functionalRole, gameState?.players);
                 return (
                   <div className="bg-slate-800/50 rounded-lg p-3 border border-cyan-500">
                     <div className="flex items-center gap-2 mb-2">
@@ -584,7 +584,7 @@ const SuccessCriteria = ({ onNavigateToLevel }) => {
               {teammates.map(teammate => {
                 const theirSelections = teammateSelections[teammate.id] || [];
                 const selectionsMatch = [...theirSelections].sort().join(',') === [...selectedCriteria].sort().join(',');
-                const teammateCharacter = getPlayerCharacter(teammate.id, functionalRole);
+                const teammateCharacter = getPlayerCharacter(teammate.id, functionalRole, gameState?.players);
 
                 return (
                   <div key={teammate.id} className={`bg-slate-800/50 rounded-lg p-3 border ${

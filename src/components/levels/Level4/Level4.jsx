@@ -517,7 +517,7 @@ const CrewAgreementPanel = ({ players, agreements, playerId, onAgree, hasAgreed,
         {allPlayers.map(([pid, playerData]) => {
           const hasPlayerAgreed = agreements?.[pid] === true;
           const isMe = pid === playerId;
-          const character = getPlayerCharacter(pid, playerData?.functionalRole);
+          const character = getPlayerCharacter(pid, playerData?.functionalRole, gameState?.players || players);
 
           return (
             <div

@@ -17,7 +17,7 @@ const Header = () => {
   const [showMenu, setShowMenu] = useState(false);
 
   // Get player's character
-  const character = getPlayerCharacter(playerId, functionalRole);
+  const character = getPlayerCharacter(playerId, functionalRole, gameState?.players);
 
   const handleLeave = () => {
     leaveGame();

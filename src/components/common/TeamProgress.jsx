@@ -48,7 +48,7 @@ const TeamProgress = ({ label, completedPlayerIds = [], showNames = true }) => {
           {allPlayers.map(([pid, playerData]) => {
             const isDone = completedPlayerIds.includes(pid);
             const isMe = pid === playerId;
-            const character = getPlayerCharacter(pid, playerData?.functionalRole);
+            const character = getPlayerCharacter(pid, playerData?.functionalRole, gameState?.players);
 
             return (
               <div
