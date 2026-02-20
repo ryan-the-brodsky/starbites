@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import {
   createGameInDB,
   getGameFromDB,
+  getLevelFromDB,
   updateGameInDB,
   updateLevelInDB,
   updateLevelPathInDB,
@@ -237,6 +238,16 @@ export const GameProvider = ({ children }) => {
     }
 
     if (levelNum < 1) return; // Level 0 = level select, no data to listen to
+
+    // Levels 2 and 3 depend on Level 1 data (selectedCriteria).
+    // Always fetch level 1 data when navigating to level 2+ to ensure it's present.
+    if (levelNum >= 2) {
+      getLevelFromDB(gameCode, 1).then(levelData => {
+        if (levelData) {
+          setGameState(prev => prev ? { ...prev, level1: levelData } : prev);
+        }
+      }).catch(err => console.error('Error fetching level1 data:', err));
+    }
 
     // Subscribe to the specific level
     listenersRef.current.level = subscribeToLevel(gameCode, levelNum, (levelData) => {

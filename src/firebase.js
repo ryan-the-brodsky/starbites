@@ -53,6 +53,13 @@ export const getGameFromDB = async (gameCode) => {
   return snapshot.exists() ? snapshot.val() : null;
 };
 
+export const getLevelFromDB = async (gameCode, levelNum) => {
+  const dbRef = levelRef(gameCode, levelNum);
+  if (!dbRef) return null;
+  const snapshot = await get(dbRef);
+  return snapshot.exists() ? snapshot.val() : null;
+};
+
 export const updateGameInDB = async (gameCode, updates) => {
   const dbRef = gameRef(gameCode);
   if (!dbRef) throw new Error('Firebase not configured');
