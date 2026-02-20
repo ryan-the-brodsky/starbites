@@ -365,6 +365,48 @@ const generateFakeData = (samplingPlan, successCriteria, seed = 42) => {
     });
   });
 
+  // Determine which step/test combos should systematically fail (not just outliers).
+  // Use the seed to pick ~25% of covered criteria to have failing data,
+  // so that the trial realistically has some tests that don't pass.
+  const failingTests = new Set();
+  const coveredCriteria = successCriteria.filter(c => {
+    if (!c?.requiredMeasurements || c.measurementType === 'conversational') return false;
+    return c.requiredMeasurements.some(m => {
+      const stepPlan = samplingPlan[m.step];
+      if (!stepPlan) return false;
+      const testPlan = stepPlan[m.test];
+      if (!testPlan) return false;
+      return Object.values(testPlan).some(qty => qty > 0);
+    });
+  });
+
+  // Pick criteria to fail — use seeded random so it's deterministic per game
+  coveredCriteria.forEach(c => {
+    if (seededRandom() < 0.25) {
+      // Pick one required measurement from this criteria to fail
+      const measurements = c.requiredMeasurements.filter(m =>
+        m.step !== 'operator-conversation' && m.test && testSpecs[m.test]
+      );
+      if (measurements.length > 0) {
+        const failIdx = Math.floor(seededRandom() * measurements.length);
+        const m = measurements[failIdx];
+        failingTests.add(`${m.step}-${m.test}`);
+      }
+    }
+  });
+
+  // Ensure at least one test fails if there are any covered criteria
+  if (failingTests.size === 0 && coveredCriteria.length > 0) {
+    const fallbackCriteria = coveredCriteria[Math.floor(seededRandom() * coveredCriteria.length)];
+    const measurements = fallbackCriteria.requiredMeasurements.filter(m =>
+      m.step !== 'operator-conversation' && m.test && testSpecs[m.test]
+    );
+    if (measurements.length > 0) {
+      const m = measurements[Math.floor(seededRandom() * measurements.length)];
+      failingTests.add(`${m.step}-${m.test}`);
+    }
+  }
+
   Object.entries(samplingPlan).forEach(([stepId, stepPlan]) => {
     if (!stepPlan || typeof stepPlan !== 'object') return;
 
@@ -383,6 +425,14 @@ const generateFakeData = (samplingPlan, successCriteria, seed = 42) => {
       data[stepId][testId] = {};
       scatterData[stepId][testId] = [];
 
+      // Check if this step/test combination should systematically fail
+      const isFailingTest = failingTests.has(`${stepId}-${testId}`);
+
+      // For failing tests, shift the entire distribution so most data is out of spec
+      const failShift = isFailingTest
+        ? (seededRandom() > 0.5 ? 1 : -1) * (spec.failRange + spec.variance * 0.5)
+        : 0;
+
       Object.entries(testPlan).forEach(([tp, quantity]) => {
         if (quantity <= 0) return;
 
@@ -393,24 +443,42 @@ const generateFakeData = (samplingPlan, successCriteria, seed = 42) => {
 
         // Generate individual sample points
         for (let i = 0; i < quantity; i++) {
-          // Determine if this sample is an anomaly (15% chance per sample, but cap per group)
-          const isAnomaly = !hasAnomalyInGroup && seededRandom() < 0.15;
           let value;
+          let isOutOfSpec = false;
 
-          if (isAnomaly) {
-            hasAnomalyInGroup = true;
-            // Generate out-of-spec value — can be warning or critical severity
-            const direction = seededRandom() > 0.5 ? 1 : -1;
-            // ~40% of anomalies will be critical (deviation > failRange)
-            const severityRoll = seededRandom();
-            const deviation = severityRoll < 0.4
-              ? spec.failRange + seededRandom() * spec.failRange * 0.5  // Critical: exceeds failRange
-              : spec.variance + seededRandom() * (spec.failRange - spec.variance) * 0.8; // Warning: within failRange
-            value = spec.nominal + direction * deviation;
-            anomalyValue = value;
+          if (isFailingTest) {
+            // Systematically shifted data — most points are out of spec
+            // ~70% of points clearly out of spec, ~30% borderline/in-spec
+            const r = seededRandom();
+            if (r < 0.70) {
+              // Out of spec — shifted from nominal
+              value = spec.nominal + failShift + (seededRandom() - 0.5) * spec.variance * 1.5;
+              isOutOfSpec = true;
+            } else {
+              // Some points closer to nominal (realistic — not every single point fails)
+              value = spec.nominal + (seededRandom() - 0.5) * spec.variance * 2;
+              isOutOfSpec = Math.abs(value - spec.nominal) > spec.variance;
+            }
           } else {
-            // Normal value within spec with some natural variation
-            value = spec.nominal + (seededRandom() - 0.5) * spec.variance * 2;
+            // Normal test — occasional individual anomalies
+            const isAnomaly = !hasAnomalyInGroup && seededRandom() < 0.15;
+
+            if (isAnomaly) {
+              hasAnomalyInGroup = true;
+              // Generate out-of-spec value — can be warning or critical severity
+              const direction = seededRandom() > 0.5 ? 1 : -1;
+              // ~40% of anomalies will be critical (deviation > failRange)
+              const severityRoll = seededRandom();
+              const deviation = severityRoll < 0.4
+                ? spec.failRange + seededRandom() * spec.failRange * 0.5  // Critical: exceeds failRange
+                : spec.variance + seededRandom() * (spec.failRange - spec.variance) * 0.8; // Warning: within failRange
+              value = spec.nominal + direction * deviation;
+              anomalyValue = value;
+              isOutOfSpec = true;
+            } else {
+              // Normal value within spec with some natural variation
+              value = spec.nominal + (seededRandom() - 0.5) * spec.variance * 2;
+            }
           }
 
           // Add slight x-jitter for visibility (spread samples within timepoint)
@@ -420,7 +488,7 @@ const generateFakeData = (samplingPlan, successCriteria, seed = 42) => {
             x: baseX + xJitter,
             y: parseFloat(value.toFixed(2)),
             timePoint: tp,
-            inSpec: !isAnomaly,
+            inSpec: !isOutOfSpec,
             sampleIndex: i + 1,
           });
         }
@@ -432,7 +500,25 @@ const generateFakeData = (samplingPlan, successCriteria, seed = 42) => {
         const avgValue = samples.reduce((sum, s) => sum + s.y, 0) / samples.length;
         const anyOutOfSpec = samples.some(s => !s.inSpec);
 
-        if (anyOutOfSpec && anomalyValue !== null) {
+        // For failing tests, record the worst out-of-spec value as the anomaly
+        if (isFailingTest) {
+          const outOfSpecSamples = samples.filter(s => !s.inSpec);
+          if (outOfSpecSamples.length > 0) {
+            const worstSample = outOfSpecSamples.reduce((worst, s) =>
+              Math.abs(s.y - spec.nominal) > Math.abs(worst.y - spec.nominal) ? s : worst
+            );
+            anomalies.push({
+              step: stepId,
+              test: testId,
+              timePoint: tp,
+              value: worstSample.y.toFixed(1),
+              expected: `${(spec.nominal - spec.variance).toFixed(1)} - ${(spec.nominal + spec.variance).toFixed(1)}`,
+              unit: spec.unit,
+              severity: 'critical',
+              sampleCount: quantity
+            });
+          }
+        } else if (anyOutOfSpec && anomalyValue !== null) {
           anomalies.push({
             step: stepId,
             test: testId,
