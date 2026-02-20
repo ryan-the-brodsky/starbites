@@ -59,7 +59,20 @@ const Level2 = ({ onNavigateToLevel }) => {
   }, []);
 
   // Get selected criteria from Level 1
-  const selectedCriteria = gameState?.level1?.selectedCriteria || [];
+  // Firebase Realtime Database may convert arrays to objects with numeric keys
+  // (e.g., {0: {...}, 1: {...}} instead of [{...}, {...}]).
+  // We must normalize to a proper array so .forEach/.map/.some/.length work.
+  const selectedCriteria = useMemo(() => {
+    const raw = gameState?.level1?.selectedCriteria;
+    if (!raw) return [];
+    const arr = Array.isArray(raw) ? raw : Object.values(raw);
+    return arr.map(c => {
+      if (c && c.requiredMeasurements && !Array.isArray(c.requiredMeasurements)) {
+        return { ...c, requiredMeasurements: Object.values(c.requiredMeasurements) };
+      }
+      return c;
+    });
+  }, [gameState?.level1?.selectedCriteria]);
 
   // Calculate which step/test combinations are needed to cover success criteria
   const requiredMeasurements = useMemo(() => {

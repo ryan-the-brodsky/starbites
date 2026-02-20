@@ -586,7 +586,19 @@ const Level4 = ({ onNavigateToLevel }) => {
   const [isEditingMode, setIsEditingMode] = useState(false);
 
   // Get data from previous levels
-  const selectedCriteria = gameState?.level1?.selectedCriteria || [];
+  // Firebase Realtime Database may convert arrays to objects with numeric keys.
+  // Normalize to a proper array so .forEach/.map/.some/.every/.length work.
+  const selectedCriteria = useMemo(() => {
+    const raw = gameState?.level1?.selectedCriteria;
+    if (!raw) return [];
+    const arr = Array.isArray(raw) ? raw : Object.values(raw);
+    return arr.map(c => {
+      if (c && c.requiredMeasurements && !Array.isArray(c.requiredMeasurements)) {
+        return { ...c, requiredMeasurements: Object.values(c.requiredMeasurements) };
+      }
+      return c;
+    });
+  }, [gameState?.level1?.selectedCriteria]);
   const samplingPlan = gameState?.level2?.samplingPlan || {};
 
   // Get synced state from Firebase

@@ -65,7 +65,7 @@ const ExportPanel = ({ allGames, leaderboard }) => {
         playerCount: Object.keys(team.players || {}).length,
         badges: team.badges || [],
         levels: {
-          level1: { score: team.level1?.score || 0, criteria: (team.level1?.selectedCriteria || []).length, completed: !!team.level1?.completedAt },
+          level1: { score: team.level1?.score || 0, criteria: (Array.isArray(team.level1?.selectedCriteria) ? team.level1.selectedCriteria : team.level1?.selectedCriteria ? Object.values(team.level1.selectedCriteria) : []).length, completed: !!team.level1?.completedAt },
           level2: { score: team.level2?.score || 0, completed: !!team.level2?.completedAt },
           level3: { score: team.level3?.score || 0, completed: !!team.level3?.completedAt },
         },
